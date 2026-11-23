@@ -263,6 +263,76 @@ class TestSafetyEngine(unittest.TestCase):
         self.assertFalse(verdict.is_safe)
         self.assertIn("exceeds original brand price", verdict.rejection_reason)
 
+    def test_reject_controlled_release_clash(self):
+        cr_med = Medicine(
+            id="MED-CR",
+            brand_name="Glipizide CR 10mg",
+            manufacturer="Innovator",
+            salts=[SaltComponent("Glipizide", 10.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.CONTROLLED_RELEASE,
+            pack_size=10,
+            mrp=100.0,
+            price_per_unit=10.0,
+            regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR,
+        )
+        ir_cand = Medicine(
+            id="MED-IR",
+            brand_name="Glipizide IR 10mg Generic",
+            manufacturer="PMBJP",
+            salts=[SaltComponent("Glipizide", 10.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE,
+            pack_size=10,
+            mrp=20.0,
+            price_per_unit=2.0,
+            regulatory_tier=RegulatoryTier.PMBJP_JAN_AUSHADHI,
+        )
+        verdict = self.engine.validate_substitution(cr_med, ir_cand)
+        self.assertFalse(verdict.is_safe)
+        self.assertIn("Critical release kinetics clash", verdict.rejection_reason)
+        self.assertIn("dose-dumping", verdict.rejection_reason)
+
+    def test_reject_enteric_coated_clash(self):
+        ec_med = Medicine(
+            id="MED-EC",
+            brand_name="Pantoprazole EC 40mg",
+            manufacturer="Innovator",
+            salts=[SaltComponent("Pantoprazole", 40.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.ENTERIC_COATED,
+            pack_size=10,
+            mrp=120.0,
+            price_per_unit=12.0,
+            regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR,
+        )
+        ir_cand = Medicine(
+            id="MED-IR-PANTO",
+            brand_name="Pantoprazole Plain 40mg Generic",
+            manufacturer="PMBJP",
+            salts=[SaltComponent("Pantoprazole", 40.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE,
+            pack_size=10,
+            mrp=25.0,
+            price_per_unit=2.50,
+            regulatory_tier=RegulatoryTier.PMBJP_JAN_AUSHADHI,
+        )
+        verdict = self.engine.validate_substitution(ec_med, ir_cand)
+        self.assertFalse(verdict.is_safe)
+        self.assertIn("Critical release kinetics clash", verdict.rejection_reason)
+        self.assertIn("acid degradation", verdict.rejection_reason)
+
+    def test_canonical_salt_map_mixed_units_additive(self):
+        # Two salt components mapping to same canonical salt but in g and mg
+        s1 = SaltComponent("Metformin Hydrochloride", 0.5, "g")
+        s2 = SaltComponent("Metformin", 500.0, "mg")
+        cmap = SafetyEngine.create_canonical_salt_map([s1, s2])
+        self.assertIn("metformin", cmap)
+        val, unit = cmap["metformin"]
+        self.assertEqual(val, 1000.0)
+        self.assertEqual(unit, "mg")
+
 
 if __name__ == "__main__":
     unittest.main()

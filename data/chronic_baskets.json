@@ -51,7 +51,7 @@
   {
     "basket_id": "BASKET-03",
     "patient_profile": "Geriatric Bone & Endocrine Care",
-    "description": "Thyroid hormone replenishment, calcium-vitamin D3 supplementation, and blood pressure control",
+    "description": "Post-menopausal bone density depletion and Primary Hypothyroidism management",
     "items": [
       {
         "brand_name": "Thyronorm 50",
@@ -60,12 +60,7 @@
       },
       {
         "brand_name": "Shelcal 500",
-        "units_per_day": 1,
-        "days": 30
-      },
-      {
-        "brand_name": "Cilacar 10",
-        "units_per_day": 1,
+        "units_per_day": 2,
         "days": 30
       }
     ]
@@ -73,22 +68,575 @@
   {
     "basket_id": "BASKET-04",
     "patient_profile": "Acute Bacterial Infection & Fever Course",
-    "description": "5-day intensive antibiotic therapy with antipyretic for bacterial respiratory tract infection",
+    "description": "Short-course high-intensity antimicrobial therapy for severe respiratory tract infection",
     "items": [
       {
         "brand_name": "Augmentin 625 Duo",
         "units_per_day": 2,
-        "days": 5
-      },
-      {
-        "brand_name": "Dolo 650",
-        "units_per_day": 3,
-        "days": 5
+        "days": 7
       },
       {
         "brand_name": "Pan-D",
         "units_per_day": 1,
-        "days": 5
+        "days": 7
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-05",
+    "patient_profile": "Diabetic Nephropathy & Early Stage CKD (Age 58)",
+    "description": "Dual SGLT2 inhibitor + ARB kidney-protective regimen with tight glycemic control",
+    "items": [
+      {
+        "brand_name": "Forxiga 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Telma 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Glycomet 1000 SR",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 20",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-06",
+    "patient_profile": "Heart Failure with Reduced Ejection Fraction (HFrEF Guideline Therapy)",
+    "description": "Four-pillar guideline-directed medical therapy (GDMT) for chronic systolic heart failure",
+    "items": [
+      {
+        "brand_name": "Vymada 50",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Betaloc 50",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Aldactone 25",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Jardiance 10",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-07",
+    "patient_profile": "Chronic COPD & Adult Bronchial Asthma Maintenance",
+    "description": "Bronchodilator, anti-inflammatory leukotriene antagonist, and mucolytic therapy",
+    "items": [
+      {
+        "brand_name": "Montair-LC",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Doxolin 400",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "AB Phylline 100",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-08",
+    "patient_profile": "Severe Osteoarthritis & Chronic Joint Degeneration (Age 68)",
+    "description": "Cox-2 specific pain management with gastric protection and bone remineralization",
+    "items": [
+      {
+        "brand_name": "Nucoxia 90",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Shelcal 500",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-09",
+    "patient_profile": "Diabetic Peripheral Neuropathy & Radiculopathy (Age 64)",
+    "description": "Neuropathic pain suppression, glycemic stabilization, and peripheral nerve myelin support",
+    "items": [
+      {
+        "brand_name": "Pregalin-M 75",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Glycomet-GP 2",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 20",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-10",
+    "patient_profile": "Rheumatoid Arthritis Disease-Modifying Regimen (DMARD)",
+    "description": "Targeted anti-rheumatic immunosuppressive therapy with folic acid rescue and bone coverage",
+    "items": [
+      {
+        "brand_name": "Folitrax 7.5",
+        "units_per_day": 1,
+        "days": 4
+      },
+      {
+        "brand_name": "HCQS 200",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Folvite 5",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Defcort 6",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-11",
+    "patient_profile": "Chronic Gastroesophageal Reflux (GERD) & Erosive Gastritis",
+    "description": "Dual acid suppression and prokinetic motility regimen",
+    "items": [
+      {
+        "brand_name": "Razo-D",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-12",
+    "patient_profile": "Ischemic Stroke Secondary Prevention & Neurological Care",
+    "description": "High-potency statin, antiplatelet, and neuroprotective blood pressure normalization",
+    "items": [
+      {
+        "brand_name": "Clopilet 75",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Telma 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-13",
+    "patient_profile": "Benign Prostatic Hyperplasia (BPH) & Lower Urinary Tract Symptoms",
+    "description": "Alpha-1 blocker + 5-alpha reductase inhibitor dual action for prostate reduction",
+    "items": [
+      {
+        "brand_name": "Urimax-D",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-14",
+    "patient_profile": "Chronic Generalized Anxiety & Depression Maintenance (Age 42)",
+    "description": "Serotonergic stabilization with sleep architecture support",
+    "items": [
+      {
+        "brand_name": "Nexito Plus",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-15",
+    "patient_profile": "Resistant Hypertension in Metabolic Syndrome (Age 55)",
+    "description": "Triple antihypertensive combination (ARB + CCB + Diuretic) plus statin therapy",
+    "items": [
+      {
+        "brand_name": "Telma-AM",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Thalizide 12.5",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Rosuvas 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-16",
+    "patient_profile": "Chronic Gout & Hyperuricemia Long-Term Prevention",
+    "description": "Xanthine oxidase inhibition with anti-inflammatory pain prophylaxis",
+    "items": [
+      {
+        "brand_name": "Zurig 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nucoxia 60",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-17",
+    "patient_profile": "Non-Alcoholic Fatty Liver Disease (NAFLD) & Dyslipidemia",
+    "description": "Hepatoprotective bile acid therapy, dual PPAR insulin sensitization, and vitamin E",
+    "items": [
+      {
+        "brand_name": "Udiliv 300",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Lipaglyn 4",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Evion 400",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-18",
+    "patient_profile": "Severe Chronic Iron Deficiency Anemia & Nutritional Care",
+    "description": "Therapeutic elemental iron replenishment with vitamin C and active B12",
+    "items": [
+      {
+        "brand_name": "Orofer-XT",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Limcee 500",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-19",
+    "patient_profile": "Parkinson's Disease Functional Mobility Maintenance",
+    "description": "Dopamine precursor + decarboxylase inhibitor with neurotrophic support",
+    "items": [
+      {
+        "brand_name": "Syndopa Plus",
+        "units_per_day": 3,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-20",
+    "patient_profile": "Alzheimer's Dementia & Cognitive Neuroprotection",
+    "description": "Cholinesterase inhibitor plus NMDA receptor antagonist dual cognition therapy",
+    "items": [
+      {
+        "brand_name": "Aricept 5",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Admenta 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Nurokind-OD",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-21",
+    "patient_profile": "Chronic Migraine & Tension Headache Prophylaxis",
+    "description": "Dual beta-blocker + calcium channel blocker prophylaxis with acute rescue cover",
+    "items": [
+      {
+        "brand_name": "Ciplar 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Sibelium 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Dolo 650",
+        "units_per_day": 1,
+        "days": 10
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-22",
+    "patient_profile": "Post-Menopausal Severe Osteoporosis High-Risk Protocol",
+    "description": "Bisphosphonate antiresorptive therapy paired with high-dose cholecalciferol and calcium",
+    "items": [
+      {
+        "brand_name": "Osteofos 70",
+        "units_per_day": 1,
+        "days": 4
+      },
+      {
+        "brand_name": "Shelcal 500",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Calcirol 60000 IU",
+        "units_per_day": 1,
+        "days": 4
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-23",
+    "patient_profile": "Chronic Ulcerative Colitis Maintenance Therapy",
+    "description": "Targeted colon-delivery 5-ASA anti-inflammatory and mucosal healing regimen",
+    "items": [
+      {
+        "brand_name": "Mesacol 800",
+        "units_per_day": 3,
+        "days": 30
+      },
+      {
+        "brand_name": "Folvite 5",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-24",
+    "patient_profile": "Post-Bypass / CABG Triple Cardiovascular Therapy",
+    "description": "Dual antiplatelet, cardioselective beta blocker, high-dose statin, and ACE inhibitor",
+    "items": [
+      {
+        "brand_name": "Brilinta 90",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Ecosprin 75",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Betaloc 50",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-25",
+    "patient_profile": "Chronic Atrial Fibrillation Stroke Prevention (DOAC)",
+    "description": "Direct oral factor Xa anticoagulant therapy with rate control",
+    "items": [
+      {
+        "brand_name": "Xarelto 15",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Concor 5",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan 40",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-26",
+    "patient_profile": "Severe Allergic Rhinitis & Chronic Sinonasal Bronchospasm",
+    "description": "Dual non-sedative antihistamine + leukotriene receptor antagonist + expectorant",
+    "items": [
+      {
+        "brand_name": "Allegra 120",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Montair 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Mucomix 600",
+        "units_per_day": 1,
+        "days": 15
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-27",
+    "patient_profile": "Chronic Hepatic Encephalopathy Maintenance Care",
+    "description": "Non-absorbable gut antibiotic plus hepatoprotective bile acid therapy",
+    "items": [
+      {
+        "brand_name": "Rifagut 550",
+        "units_per_day": 2,
+        "days": 30
+      },
+      {
+        "brand_name": "Udiliv 300",
+        "units_per_day": 2,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-28",
+    "patient_profile": "Type 2 Diabetes Triple OAD Therapy (Metformin + DPP4 + SGLT2)",
+    "description": "Modern triple oral antidiabetic therapy combining glucuronidation, incretin, and glycosuria",
+    "items": [
+      {
+        "brand_name": "Janumet 50/1000",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Jardiance 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 20",
+        "units_per_day": 1,
+        "days": 30
       }
     ]
   }

@@ -1,4 +1,25 @@
+# Byte-compiled / optimized files
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+*$py.class
 
+# Environment & Virtualenv
+.venv/
+venv/
+env/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Project-specific generation tools & auxiliary outputs
+graphify-out/
+tools/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

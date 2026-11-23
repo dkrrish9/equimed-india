@@ -61,9 +61,10 @@ class SaltComponent:
 
     def normalized_key(self) -> str:
         """Returns standard chemical identifier string: e.g. 'amoxicillin:500.0:mg'."""
-        cleaned_name = self.name.strip().lower()
-        cleaned_unit = self.strength_unit.strip().lower()
-        return f"{cleaned_name}:{round(self.strength_value, 4)}:{cleaned_unit}"
+        from src.safety_engine import SafetyEngine
+        canonical_name = SafetyEngine.normalize_salt_name(self.name)
+        norm_val, norm_unit = SafetyEngine.normalize_strength(self.strength_value, self.strength_unit)
+        return f"{canonical_name}:{round(norm_val, 4)}:{norm_unit}"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
