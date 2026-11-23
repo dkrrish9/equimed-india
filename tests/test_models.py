@@ -122,6 +122,20 @@ class TestModels(unittest.TestCase):
         )
         self.assertEqual(basket.total_cost, 600.0)
 
+    def test_salt_component_canonical_synonym_normalized_key(self):
+        # Salt synonyms and unit variations produce matching canonical keys
+        salt_hcl = SaltComponent("Metformin Hydrochloride", 500.0, "mg")
+        salt_base = SaltComponent("Metformin", 500.0, "mg")
+        self.assertEqual(salt_hcl.normalized_key(), "metformin:500.0:mg")
+        self.assertEqual(salt_base.normalized_key(), "metformin:500.0:mg")
+        self.assertEqual(salt_hcl.normalized_key(), salt_base.normalized_key())
+
+    def test_salt_component_strength_unit_normalization(self):
+        # 0.5g and 500mg should normalize to same strength value and unit
+        salt_g = SaltComponent("Paracetamol", 0.5, "g")
+        salt_mg = SaltComponent("Paracetamol", 500.0, "mg")
+        self.assertEqual(salt_g.normalized_key(), salt_mg.normalized_key())
+
 
 if __name__ == "__main__":
     unittest.main()

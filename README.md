@@ -2,7 +2,9 @@
 ### Deterministic Generic Drug Substitution & Out-of-Pocket Healthcare Affordability Optimizer
 
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Verification Status](https://img.shields.io/badge/tests-47%20passed%20%7C%200%20failed-brightgreen.svg)]()
+[![Verification Status](https://img.shields.io/badge/tests-66%20passed%20%7C%200%20failed-brightgreen.svg)]()
+[![Catalog Size](https://img.shields.io/badge/catalog-611%20medicines-blue.svg)]()
+[![Therapy Baskets](https://img.shields.io/badge/chronic%20baskets-28%20scenarios-teal.svg)]()
 [![Code Coverage](https://img.shields.io/badge/RTM%20Coverage-100%25-success.svg)]()
 [![Standard](https://img.shields.io/badge/SRS-IEEE%20Std%20830--1998-orange.svg)]()
 [![Course](https://img.shields.io/badge/IIIT%20Lucknow-Software%20Engineering%20(4%20Credits)-purple.svg)]()
@@ -40,7 +42,8 @@ Evaluated across real-world chronic patient therapy bundles:
 
 - **Sub-Millisecond Query Latency:** $0.012\text{ ms}$ (p90) — throughput exceeds **100,000 QPS**.
 - **Bioequivalence Precision:** **100.0%** (0 chemical mismatches, 0 strength tolerance breaches).
-- **Formal Verification:** **47 / 47 tests passing (100%)** including formal Equivalence Class Partitioning (ECP) and Boundary Value Analysis (BVA).
+- **Formal Verification:** **66 / 66 tests passing (100%)** including formal Equivalence Class Partitioning (ECP), Boundary Value Analysis (BVA), Safety Engine Release Kinetics, REST API & Baskets integration suites.
+- **Extensive Clinical Dataset:** **611 curated Indian branded & Jan Aushadhi medicines** across 20+ therapeutic categories and **28 real-world chronic therapy baskets** yielding an average of **82.8% out-of-pocket patient savings**.
 
 ---
 
@@ -87,6 +90,7 @@ SE Project/
     ├── test_safety_engine.py          # Clinical safety & bioequivalence unit tests
     ├── test_strategies.py             # Strategy pattern ranking tests
     ├── test_search_engine.py          # Search facade & observer notification tests
+    ├── test_server.py                 # Embedded HTTP REST API & Web UI tests
     ├── test_optimizer.py              # Multi-drug basket calculation tests
     ├── test_blackbox.py               # Equivalence Class Partitioning & BVA tests
     └── test_cli_and_integration.py    # End-to-end integration & CLI tests

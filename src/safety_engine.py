@@ -96,6 +96,12 @@ class SafetyEngine:
                 existing_val, existing_unit = result[canonical_name]
                 if existing_unit == norm_unit:
                     norm_val = round(existing_val + norm_val, 4)
+                else:
+                    ev, eu = cls.normalize_strength(existing_val, existing_unit)
+                    nv, nu = cls.normalize_strength(norm_val, norm_unit)
+                    if eu == nu:
+                        norm_val = round(ev + nv, 4)
+                        norm_unit = eu
             result[canonical_name] = (norm_val, norm_unit)
         return result
 
@@ -178,13 +184,23 @@ class SafetyEngine:
 
         # Rule 4: Check Release Kinetics
         if original.release_type != candidate.release_type:
-            if original.release_type in (ReleaseType.SUSTAINED_RELEASE, ReleaseType.EXTENDED_RELEASE):
+            critical_releases = (
+                ReleaseType.SUSTAINED_RELEASE,
+                ReleaseType.EXTENDED_RELEASE,
+                ReleaseType.CONTROLLED_RELEASE,
+                ReleaseType.ENTERIC_COATED,
+            )
+            if original.release_type in critical_releases:
+                if original.release_type == ReleaseType.ENTERIC_COATED:
+                    risk_msg = "acid degradation or severe gastric irritation risk"
+                else:
+                    risk_msg = "dose-dumping or peak plasma toxicity risk"
                 return SafetyVerdict(
                     is_safe=False,
                     is_exact_bioequivalent=False,
                     rejection_reason=(
                         f"Critical release kinetics clash: Prescribed {original.release_type.value} "
-                        f"cannot be substituted with {candidate.release_type.value} due to dose-dumping/peak plasma risk."
+                        f"cannot be substituted with {candidate.release_type.value} due to {risk_msg}."
                     ),
                 )
             warnings.append(
