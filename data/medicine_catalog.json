@@ -1,0 +1,596 @@
+[
+  {
+    "id": "MED-001",
+    "brand_name": "Augmentin 625 Duo",
+    "manufacturer": "GlaxoSmithKline Pharmaceuticals Ltd",
+    "salts": [
+      {"name": "Amoxicillin", "strength_value": 500.0, "strength_unit": "mg"},
+      {"name": "Clavulanic Acid", "strength_value": 125.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 204.50,
+    "price_per_unit": 20.45,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Antibiotic"
+  },
+  {
+    "id": "MED-002",
+    "brand_name": "Amoxyclav 625 (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Amoxicillin", "strength_value": 500.0, "strength_unit": "mg"},
+      {"name": "Clavulanic Acid", "strength_value": 125.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 54.00,
+    "price_per_unit": 5.40,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Antibiotic"
+  },
+  {
+    "id": "MED-003",
+    "brand_name": "Moxikind-CV 625",
+    "manufacturer": "Mankind Pharma Ltd (Generic Division)",
+    "salts": [
+      {"name": "Amoxicillin", "strength_value": 500.0, "strength_unit": "mg"},
+      {"name": "Clavulanic Acid", "strength_value": 125.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 95.00,
+    "price_per_unit": 9.50,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Antibiotic"
+  },
+  {
+    "id": "MED-004",
+    "brand_name": "Telma 40",
+    "manufacturer": "Glenmark Pharmaceuticals Ltd",
+    "salts": [
+      {"name": "Telmisartan", "strength_value": 40.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 218.00,
+    "price_per_unit": 14.53,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Hypertension (ARB)"
+  },
+  {
+    "id": "MED-005",
+    "brand_name": "Telmisartan 40mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Telmisartan", "strength_value": 40.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 14.00,
+    "price_per_unit": 1.40,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Hypertension (ARB)"
+  },
+  {
+    "id": "MED-006",
+    "brand_name": "Telmikind 40",
+    "manufacturer": "Mankind Pharma Ltd",
+    "salts": [
+      {"name": "Telmisartan", "strength_value": 40.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 38.00,
+    "price_per_unit": 3.80,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Hypertension (ARB)"
+  },
+  {
+    "id": "MED-007",
+    "brand_name": "Glycomet-GP 2",
+    "manufacturer": "USV Pvt Ltd",
+    "salts": [
+      {"name": "Metformin Hydrochloride", "strength_value": 500.0, "strength_unit": "mg"},
+      {"name": "Glimepiride", "strength_value": 2.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "SUSTAINED_RELEASE",
+    "pack_size": 15,
+    "mrp": 215.00,
+    "price_per_unit": 14.33,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Type 2 Diabetes"
+  },
+  {
+    "id": "MED-008",
+    "brand_name": "Glimepiride + Metformin SR (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Metformin", "strength_value": 500.0, "strength_unit": "mg"},
+      {"name": "Glimepiride", "strength_value": 2.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "SUSTAINED_RELEASE",
+    "pack_size": 10,
+    "mrp": 27.00,
+    "price_per_unit": 2.70,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Type 2 Diabetes"
+  },
+  {
+    "id": "MED-009",
+    "brand_name": "Gliclazide-M 500/2 Generic",
+    "manufacturer": "Cipla Generics Ltd",
+    "salts": [
+      {"name": "Metformin", "strength_value": 500.0, "strength_unit": "mg"},
+      {"name": "Glimepiride", "strength_value": 2.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "SUSTAINED_RELEASE",
+    "pack_size": 10,
+    "mrp": 45.00,
+    "price_per_unit": 4.50,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Type 2 Diabetes"
+  },
+  {
+    "id": "MED-010",
+    "brand_name": "Pan-D",
+    "manufacturer": "Alkem Laboratories Ltd",
+    "salts": [
+      {"name": "Pantoprazole", "strength_value": 40.0, "strength_unit": "mg"},
+      {"name": "Domperidone", "strength_value": 30.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "CAPSULE",
+    "release_type": "SUSTAINED_RELEASE",
+    "pack_size": 15,
+    "mrp": 205.00,
+    "price_per_unit": 13.67,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Gastroenterology (GERD / Antacid)"
+  },
+  {
+    "id": "MED-011",
+    "brand_name": "Pantoprazole + Domperidone SR (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Pantoprazole", "strength_value": 40.0, "strength_unit": "mg"},
+      {"name": "Domperidone", "strength_value": 30.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "CAPSULE",
+    "release_type": "SUSTAINED_RELEASE",
+    "pack_size": 10,
+    "mrp": 31.00,
+    "price_per_unit": 3.10,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Gastroenterology (GERD / Antacid)"
+  },
+  {
+    "id": "MED-012",
+    "brand_name": "Panta-D Generic",
+    "manufacturer": "Zydus Cadila Healthcare Ltd",
+    "salts": [
+      {"name": "Pantoprazole", "strength_value": 40.0, "strength_unit": "mg"},
+      {"name": "Domperidone", "strength_value": 30.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "CAPSULE",
+    "release_type": "SUSTAINED_RELEASE",
+    "pack_size": 10,
+    "mrp": 48.00,
+    "price_per_unit": 4.80,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Gastroenterology (GERD / Antacid)"
+  },
+  {
+    "id": "MED-013",
+    "brand_name": "Atorva 10",
+    "manufacturer": "Zydus Lifesciences Ltd",
+    "salts": [
+      {"name": "Atorvastatin Calcium", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 128.00,
+    "price_per_unit": 8.53,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Dyslipidemia (Cholesterol / Statin)"
+  },
+  {
+    "id": "MED-014",
+    "brand_name": "Atorvastatin 10mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Atorvastatin", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 11.50,
+    "price_per_unit": 1.15,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Dyslipidemia (Cholesterol / Statin)"
+  },
+  {
+    "id": "MED-015",
+    "brand_name": "Storvas 10 Generic",
+    "manufacturer": "Sun Pharma Industries Ltd (Generic)",
+    "salts": [
+      {"name": "Atorvastatin", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 26.00,
+    "price_per_unit": 2.60,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Dyslipidemia (Cholesterol / Statin)"
+  },
+  {
+    "id": "MED-016",
+    "brand_name": "Thyronorm 50",
+    "manufacturer": "Abbott Healthcare Pvt Ltd",
+    "salts": [
+      {"name": "Thyroxine Sodium", "strength_value": 50.0, "strength_unit": "mcg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 120,
+    "mrp": 192.00,
+    "price_per_unit": 1.60,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": true,
+    "therapeutic_category": "Endocrinology (Hypothyroidism)"
+  },
+  {
+    "id": "MED-017",
+    "brand_name": "Thyroxine Sodium 50mcg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Thyroxine Sodium", "strength_value": 50.0, "strength_unit": "mcg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 100,
+    "mrp": 42.00,
+    "price_per_unit": 0.42,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": true,
+    "therapeutic_category": "Endocrinology (Hypothyroidism)"
+  },
+  {
+    "id": "MED-018",
+    "brand_name": "Montair-LC",
+    "manufacturer": "Cipla Ltd",
+    "salts": [
+      {"name": "Montelukast", "strength_value": 10.0, "strength_unit": "mg"},
+      {"name": "Levocetirizine", "strength_value": 5.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 218.00,
+    "price_per_unit": 21.80,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Respiratory / Anti-Allergic"
+  },
+  {
+    "id": "MED-019",
+    "brand_name": "Montelukast + Levocetirizine (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Montelukast", "strength_value": 10.0, "strength_unit": "mg"},
+      {"name": "Levocetirizine", "strength_value": 5.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 38.00,
+    "price_per_unit": 3.80,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Respiratory / Anti-Allergic"
+  },
+  {
+    "id": "MED-020",
+    "brand_name": "Montek-LC Generic",
+    "manufacturer": "Sun Pharma Industries Ltd",
+    "salts": [
+      {"name": "Montelukast", "strength_value": 10.0, "strength_unit": "mg"},
+      {"name": "Levocetirizine", "strength_value": 5.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 72.00,
+    "price_per_unit": 7.20,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Respiratory / Anti-Allergic"
+  },
+  {
+    "id": "MED-021",
+    "brand_name": "Cilacar 10",
+    "manufacturer": "J.B. Chemicals & Pharmaceuticals Ltd",
+    "salts": [
+      {"name": "Cilnidipine", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 122.00,
+    "price_per_unit": 8.13,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Hypertension (CCB)"
+  },
+  {
+    "id": "MED-022",
+    "brand_name": "Cilnidipine 10mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Cilnidipine", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 18.00,
+    "price_per_unit": 1.80,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Hypertension (CCB)"
+  },
+  {
+    "id": "MED-023",
+    "brand_name": "Rosuvas 10",
+    "manufacturer": "Sun Pharmaceutical Industries Ltd",
+    "salts": [
+      {"name": "Rosuvastatin", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 275.00,
+    "price_per_unit": 18.33,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Dyslipidemia (Statin)"
+  },
+  {
+    "id": "MED-024",
+    "brand_name": "Rosuvastatin 10mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Rosuvastatin", "strength_value": 10.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 25.00,
+    "price_per_unit": 2.50,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Dyslipidemia (Statin)"
+  },
+  {
+    "id": "MED-025",
+    "brand_name": "Rosuvas-Gold 10",
+    "manufacturer": "Sun Pharmaceutical Industries Ltd",
+    "salts": [
+      {"name": "Rosuvastatin", "strength_value": 10.0, "strength_unit": "mg"},
+      {"name": "Aspirin", "strength_value": 75.0, "strength_unit": "mg"},
+      {"name": "Clopidogrel", "strength_value": 75.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "CAPSULE",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 420.00,
+    "price_per_unit": 28.00,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Cardiovascular / Antiplatelet"
+  },
+  {
+    "id": "MED-026",
+    "brand_name": "Triple Cardio Generic (Rosuva+Asp+Clopi)",
+    "manufacturer": "Torrent Pharmaceuticals (Generic)",
+    "salts": [
+      {"name": "Rosuvastatin", "strength_value": 10.0, "strength_unit": "mg"},
+      {"name": "Aspirin", "strength_value": 75.0, "strength_unit": "mg"},
+      {"name": "Clopidogrel", "strength_value": 75.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "CAPSULE",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 90.00,
+    "price_per_unit": 9.00,
+    "regulatory_tier": "WHO_GMP_GENERIC",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Cardiovascular / Antiplatelet"
+  },
+  {
+    "id": "MED-027",
+    "brand_name": "Dolo 650",
+    "manufacturer": "Micro Labs Ltd",
+    "salts": [
+      {"name": "Paracetamol", "strength_value": 650.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 34.00,
+    "price_per_unit": 2.27,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Analgesic / Antipyretic"
+  },
+  {
+    "id": "MED-028",
+    "brand_name": "Paracetamol 650mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Paracetamol", "strength_value": 650.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 8.50,
+    "price_per_unit": 0.85,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Analgesic / Antipyretic"
+  },
+  {
+    "id": "MED-029",
+    "brand_name": "Januvia 100",
+    "manufacturer": "Merck Sharp & Dohme (MSD)",
+    "salts": [
+      {"name": "Sitagliptin", "strength_value": 100.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 7,
+    "mrp": 315.00,
+    "price_per_unit": 45.00,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Type 2 Diabetes (DPP-4 Inhibitor)"
+  },
+  {
+    "id": "MED-030",
+    "brand_name": "Sitagliptin 100mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Sitagliptin", "strength_value": 100.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 60.00,
+    "price_per_unit": 6.00,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Type 2 Diabetes (DPP-4 Inhibitor)"
+  },
+  {
+    "id": "MED-031",
+    "brand_name": "Ecosprin 75",
+    "manufacturer": "USV Pvt Ltd",
+    "salts": [
+      {"name": "Aspirin", "strength_value": 75.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "ENTERIC_COATED",
+    "pack_size": 14,
+    "mrp": 7.20,
+    "price_per_unit": 0.51,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Cardiology (Antiplatelet)"
+  },
+  {
+    "id": "MED-032",
+    "brand_name": "Aspirin 75mg EC (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Aspirin", "strength_value": 75.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "ENTERIC_COATED",
+    "pack_size": 14,
+    "mrp": 2.80,
+    "price_per_unit": 0.20,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Cardiology (Antiplatelet)"
+  },
+  {
+    "id": "MED-033",
+    "brand_name": "Shelcal 500",
+    "manufacturer": "Torrent Pharmaceuticals Ltd",
+    "salts": [
+      {"name": "Calcium Carbonate", "strength_value": 1250.0, "strength_unit": "mg"},
+      {"name": "Vitamin D3", "strength_value": 250.0, "strength_unit": "IU"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 15,
+    "mrp": 142.00,
+    "price_per_unit": 9.47,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Nutritional / Bone Health"
+  },
+  {
+    "id": "MED-034",
+    "brand_name": "Calcium + Vitamin D3 (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Calcium Carbonate", "strength_value": 1250.0, "strength_unit": "mg"},
+      {"name": "Vitamin D3", "strength_value": 250.0, "strength_unit": "IU"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "IMMEDIATE_RELEASE",
+    "pack_size": 10,
+    "mrp": 25.00,
+    "price_per_unit": 2.50,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Nutritional / Bone Health"
+  },
+  {
+    "id": "MED-035",
+    "brand_name": "Nexpro 40",
+    "manufacturer": "Torrent Pharmaceuticals Ltd",
+    "salts": [
+      {"name": "Esomeprazole", "strength_value": 40.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "ENTERIC_COATED",
+    "pack_size": 15,
+    "mrp": 165.00,
+    "price_per_unit": 11.00,
+    "regulatory_tier": "BRANDED_INNOVATOR",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Gastroenterology (PPI)"
+  },
+  {
+    "id": "MED-036",
+    "brand_name": "Esomeprazole 40mg (Jan Aushadhi)",
+    "manufacturer": "PMBJP (Pradhan Mantri Bhartiya Janaushadhi Pariyojana)",
+    "salts": [
+      {"name": "Esomeprazole", "strength_value": 40.0, "strength_unit": "mg"}
+    ],
+    "dosage_form": "TABLET",
+    "release_type": "ENTERIC_COATED",
+    "pack_size": 10,
+    "mrp": 22.00,
+    "price_per_unit": 2.20,
+    "regulatory_tier": "PMBJP_JAN_AUSHADHI",
+    "is_narrow_therapeutic_index": false,
+    "therapeutic_category": "Gastroenterology (PPI)"
+  }
+]

@@ -1,0 +1,95 @@
+[
+  {
+    "basket_id": "BASKET-01",
+    "patient_profile": "Elderly Diabetic & Hypertensive Patient (Age 62)",
+    "description": "Standard daily regimen for chronic Type 2 Diabetes and Hypertension with nighttime acid reflux",
+    "items": [
+      {
+        "brand_name": "Glycomet-GP 2",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Telma 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan-D",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 10",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-02",
+    "patient_profile": "Cardiovascular Secondary Prevention (Post-Angioplasty / Stent)",
+    "description": "Post-cardiac intervention maintenance therapy: dual antiplatelet, high-potency statin, and ACE/ARB",
+    "items": [
+      {
+        "brand_name": "Rosuvas-Gold 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Telma 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Pan-D",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-03",
+    "patient_profile": "Geriatric Bone & Endocrine Care",
+    "description": "Thyroid hormone replenishment, calcium-vitamin D3 supplementation, and blood pressure control",
+    "items": [
+      {
+        "brand_name": "Thyronorm 50",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Shelcal 500",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Cilacar 10",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-04",
+    "patient_profile": "Acute Bacterial Infection & Fever Course",
+    "description": "5-day intensive antibiotic therapy with antipyretic for bacterial respiratory tract infection",
+    "items": [
+      {
+        "brand_name": "Augmentin 625 Duo",
+        "units_per_day": 2,
+        "days": 5
+      },
+      {
+        "brand_name": "Dolo 650",
+        "units_per_day": 3,
+        "days": 5
+      },
+      {
+        "brand_name": "Pan-D",
+        "units_per_day": 1,
+        "days": 5
+      }
+    ]
+  }
+]
