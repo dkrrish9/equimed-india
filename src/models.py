@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 from typing import Any, Dict, List, Optional
 
 
@@ -109,6 +110,13 @@ class Medicine:
         release_str = self.release_type.value
         return f"{'|'.join(sorted_keys)}#{form_str}#{release_str}"
 
+    def packs_for_units(self, total_units: int) -> int:
+        """Compute minimum whole retail packs/strips needed for a unit quantity."""
+        if total_units <= 0:
+            return 0
+        pack = max(1, int(self.pack_size))
+        return math.ceil(total_units / pack)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
@@ -206,6 +214,14 @@ class PrescriptionItem:
     def total_cost(self) -> float:
         return round(self.total_units * self.medicine.price_per_unit, 2)
 
+    @property
+    def packs_needed(self) -> int:
+        return self.medicine.packs_for_units(self.total_units)
+
+    @property
+    def pack_total_cost(self) -> float:
+        return round(self.packs_needed * self.medicine.mrp, 2)
+
 
 @dataclass
 class PrescriptionBasket:
@@ -234,8 +250,18 @@ class OptimizedItem:
     def to_dict(self) -> Dict[str, Any]:
         sub_name = self.best_substitute.brand_name if self.best_substitute else "None"
         sub_mfg = self.best_substitute.manufacturer if self.best_substitute else "N/A"
+        salts_str = ", ".join(
+            f"{s.name} {int(s.strength_value) if float(s.strength_value).is_integer() else s.strength_value}{s.strength_unit}"
+            for s in self.original_item.medicine.salts
+        )
         return {
+            "original_id": self.original_item.medicine.id,
             "original_brand": self.original_item.medicine.brand_name,
+            "dosage_form": self.original_item.medicine.dosage_form.value,
+            "salts": salts_str,
+            "units_per_day": self.original_item.units_per_day,
+            "duration_days": self.original_item.duration_days,
+            "substitute_id": self.best_substitute.id if self.best_substitute else None,
             "substitute_brand": sub_name,
             "manufacturer": sub_mfg,
             "units_needed": self.original_item.total_units,

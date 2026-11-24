@@ -26,27 +26,94 @@ class SafetyEngine:
     equivalence, dosage kinetics compatibility, and NTI safety alerts.
     """
 
-    # Salt synonyms mapping to canonical base active pharmaceutical ingredient
+    # Salt synonyms mapping to canonical base active pharmaceutical ingredient.
+    # Deliberately preserves clinically non-equivalent salts/esters such as
+    # metoprolol succinate vs tartrate and diclofenac sodium vs potassium.
     SALT_SYNONYMS: Dict[str, str] = {
         "metformin hydrochloride": "metformin",
         "metformin hcl": "metformin",
         "amoxicillin trihydrate": "amoxicillin",
+        "amoxycillin": "amoxicillin",
+        "amoxycillin trihydrate": "amoxicillin",
         "clavulanate potassium": "clavulanic acid",
         "potassium clavulanate": "clavulanic acid",
         "atorvastatin calcium": "atorvastatin",
         "rosuvastatin calcium": "rosuvastatin",
         "acetaminophen": "paracetamol",
+        "pcm": "paracetamol",
         "levothyroxine": "thyroxine sodium",
         "levothyroxine sodium": "thyroxine sodium",
         "l-thyroxine": "thyroxine sodium",
         "pantoprazole sodium": "pantoprazole",
+        "pantoprazole sodium sesquihydrate": "pantoprazole",
         "rabeprazole sodium": "rabeprazole",
         "esomeprazole magnesium": "esomeprazole",
+        "omeprazole magnesium": "omeprazole",
         "telmisartan sodium": "telmisartan",
+        "amlodipine besylate": "amlodipine",
+        "amlodipine besilate": "amlodipine",
+        "losartan potassium": "losartan",
+        "olmesartan medoxomil": "olmesartan",
         "cilnidipine": "cilnidipine",
         "domperidone maleate": "domperidone",
         "aspirin": "aspirin",
         "acetylsalicylic acid": "aspirin",
+        "clopidogrel bisulfate": "clopidogrel",
+        "clopidogrel bisulphate": "clopidogrel",
+        "sitagliptin phosphate": "sitagliptin",
+        "montelukast sodium": "montelukast",
+        "cetirizine hcl": "cetirizine",
+        "cetirizine hydrochloride": "cetirizine",
+        "cetirizine dihydrochloride": "cetirizine",
+        "levocetirizine hcl": "levocetirizine",
+        "levocetirizine dihydrochloride": "levocetirizine",
+        "fexofenadine hcl": "fexofenadine",
+        "fexofenadine hydrochloride": "fexofenadine",
+        "sertraline hcl": "sertraline",
+        "sertraline hydrochloride": "sertraline",
+        "escitalopram oxalate": "escitalopram",
+        "fluoxetine hcl": "fluoxetine",
+        "fluoxetine hydrochloride": "fluoxetine",
+        "amitriptyline hcl": "amitriptyline",
+        "amitriptyline hydrochloride": "amitriptyline",
+        "tamsulosin hcl": "tamsulosin",
+        "tamsulosin hydrochloride": "tamsulosin",
+        "alfuzosin hcl": "alfuzosin",
+        "ciprofloxacin hcl": "ciprofloxacin",
+        "ciprofloxacin hydrochloride": "ciprofloxacin",
+        "levofloxacin hemihydrate": "levofloxacin",
+        "azithromycin dihydrate": "azithromycin",
+        "doxycycline hyclate": "doxycycline",
+        "doxycycline monohydrate": "doxycycline",
+        "propranolol hcl": "propranolol",
+        "propranolol hydrochloride": "propranolol",
+        "nebivolol hcl": "nebivolol",
+        "diltiazem hcl": "diltiazem",
+        "tramadol hcl": "tramadol",
+        "ondansetron hcl": "ondansetron",
+        "drotaverine hcl": "drotaverine",
+        "salbutamol sulfate": "salbutamol",
+        "salbutamol sulphate": "salbutamol",
+        "albuterol": "salbutamol",
+        "formoterol fumarate": "formoterol",
+        "tiotropium bromide": "tiotropium",
+        "enoxaparin sodium": "enoxaparin",
+        "warfarin sodium": "warfarin",
+        "phenytoin sodium": "phenytoin",
+        "lithium carbonate": "lithium",
+        "divalproex sodium": "sodium valproate",
+        "valproate sodium": "sodium valproate",
+        "frusemide": "furosemide",
+        "torasemide": "torsemide",
+        "mesalazine": "mesalamine",
+        "vitamin d3": "cholecalciferol",
+        "cholecalciferol (vitamin d3)": "cholecalciferol",
+        "vitamin d3 (cholecalciferol)": "cholecalciferol",
+        "vitamin c": "ascorbic acid",
+        "vitamin b12": "methylcobalamin",
+        "mecobalamin": "methylcobalamin",
+        "vitamin e": "tocopheryl acetate",
+        "udca": "ursodeoxycholic acid",
     }
 
     # Narrow Therapeutic Index (NTI) active substances requiring strict oversight
@@ -58,6 +125,11 @@ class SafetyEngine:
         "phenytoin",
         "theophylline",
         "carbamazepine",
+        "sodium valproate",
+        "valproic acid",
+        "tacrolimus",
+        "cyclosporine",
+        "amiodarone",
     }
 
     # Compatible oral solid forms (Tablet <-> Capsule often interchangeable for IR)
@@ -72,14 +144,34 @@ class SafetyEngine:
 
     @classmethod
     def normalize_strength(cls, value: float, unit: str) -> Tuple[float, str]:
-        """Convert strength to canonical units (mg or IU)."""
-        u = unit.strip().lower()
+        """Convert strength to canonical units (mg, mg/ml, iu, iu/ml, mcg/puff, %)."""
+        u = re.sub(r"\s+", "", unit.strip().lower())
         v = float(value)
         if u == "g":
             return v * 1000.0, "mg"
         if u in ("mcg", "µg", "ug"):
             return v / 1000.0, "mg"
-        if u in ("mg", "iu", "ml", "%"):
+        if u == "mg/5ml":
+            return v / 5.0, "mg/ml"
+        if u == "g/5ml":
+            return v * 200.0, "mg/ml"
+        if u in ("mcg/5ml", "µg/5ml", "ug/5ml"):
+            return v / 5000.0, "mg/ml"
+        if u in ("mcg/ml", "µg/ml", "ug/ml"):
+            return v / 1000.0, "mg/ml"
+        if u == "g/ml":
+            return v * 1000.0, "mg/ml"
+        if u == "iu/5ml":
+            return v / 5.0, "iu/ml"
+        if u in ("mcg/puff", "µg/puff", "ug/puff"):
+            return v, "mcg/puff"
+        if u == "mg/puff":
+            return v * 1000.0, "mcg/puff"
+        if u in ("%w/v", "w/v%"):
+            return v, "% w/v"
+        if u in ("%w/w", "w/w%"):
+            return v, "% w/w"
+        if u in ("mg", "iu", "ml", "%", "mg/ml", "iu/ml"):
             return v, u
         return v, u
 
@@ -182,7 +274,7 @@ class SafetyEngine:
                     ),
                 )
 
-        # Rule 4: Check Release Kinetics
+        # Rule 4: Check Release Kinetics (symmetrically prevent IR <-> modified release mismatch)
         if original.release_type != candidate.release_type:
             critical_releases = (
                 ReleaseType.SUSTAINED_RELEASE,
@@ -190,11 +282,14 @@ class SafetyEngine:
                 ReleaseType.CONTROLLED_RELEASE,
                 ReleaseType.ENTERIC_COATED,
             )
-            if original.release_type in critical_releases:
-                if original.release_type == ReleaseType.ENTERIC_COATED:
+            if original.release_type in critical_releases or candidate.release_type in critical_releases:
+                if (
+                    original.release_type == ReleaseType.ENTERIC_COATED
+                    or candidate.release_type == ReleaseType.ENTERIC_COATED
+                ):
                     risk_msg = "acid degradation or severe gastric irritation risk"
                 else:
-                    risk_msg = "dose-dumping or peak plasma toxicity risk"
+                    risk_msg = "dose-dumping, altered dosing frequency, or peak plasma toxicity risk"
                 return SafetyVerdict(
                     is_safe=False,
                     is_exact_bioequivalent=False,

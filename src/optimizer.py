@@ -119,6 +119,179 @@ class PrescriptionOptimizer:
 
         return result
 
+    def optimize_custom_cart(
+        self,
+        cart_specs: List[Dict[str, Any]],
+        strategy: Optional[SubstitutionStrategy] = None,
+    ) -> Dict[str, Any]:
+        """Optimize a custom prescription cart with dual unit + real pharmacy strip/pack billing."""
+        repo = self.search_engine.repository
+        resolved_items: List[Dict[str, Any]] = []
+        unresolved_items: List[str] = []
+        all_alerts: List[str] = []
+
+        orig_unit_total = 0.0
+        opt_unit_total = 0.0
+        orig_pack_total = 0.0
+        opt_pack_total = 0.0
+
+        for spec in cart_specs:
+            med_id = str(spec.get("medicine_id") or "").strip()
+            brand_name = str(spec.get("brand_name") or "").strip()
+
+            med = repo.get_by_id(med_id) if med_id else None
+            if not med and brand_name:
+                med = repo.get_by_brand_exact(brand_name)
+                if not med:
+                    hits = repo.search_by_brand(brand_name, limit=1)
+                    med = hits[0] if hits else None
+
+            if not med:
+                unresolved_items.append(brand_name or med_id or "Unknown medicine")
+                continue
+
+            try:
+                units_per_day = max(1, int(spec.get("units_per_day", 1)))
+            except (TypeError, ValueError):
+                units_per_day = 1
+            try:
+                duration_days = max(1, int(spec.get("duration_days", 30)))
+            except (TypeError, ValueError):
+                duration_days = 30
+
+            freq_label = str(spec.get("frequency_label") or f"{units_per_day}/day")
+            selected_sub_id = str(spec.get("selected_substitute_id") or "").strip()
+
+            matches = self.search_engine.find_substitutes(
+                query_or_medicine=med,
+                strategy=strategy,
+                limit=5,
+            )
+
+            chosen_match = None
+            if selected_sub_id == "KEEP_ORIGINAL":
+                chosen_med = med
+            elif selected_sub_id:
+                chosen_match = next(
+                    (m for m in matches if m.substitute_medicine.id == selected_sub_id),
+                    matches[0] if matches else None,
+                )
+                chosen_med = chosen_match.substitute_medicine if chosen_match else med
+            elif matches:
+                chosen_match = matches[0]
+                chosen_med = chosen_match.substitute_medicine
+            else:
+                chosen_med = med
+
+            total_units = units_per_day * duration_days
+            orig_unit_cost = round(total_units * med.price_per_unit, 2)
+            orig_packs = med.packs_for_units(total_units)
+            orig_pack_cost = round(orig_packs * med.mrp, 2)
+
+            chosen_unit_cost = round(total_units * chosen_med.price_per_unit, 2)
+            chosen_packs = chosen_med.packs_for_units(total_units)
+            chosen_pack_cost = round(chosen_packs * chosen_med.mrp, 2)
+
+            unit_savings = round(orig_unit_cost - chosen_unit_cost, 2)
+            unit_savings_pct = round((unit_savings / orig_unit_cost) * 100.0, 2) if orig_unit_cost > 0 else 0.0
+            pack_savings = round(orig_pack_cost - chosen_pack_cost, 2)
+            pack_savings_pct = round((pack_savings / orig_pack_cost) * 100.0, 2) if orig_pack_cost > 0 else 0.0
+
+            warnings: List[str] = []
+            if chosen_match:
+                warnings.extend(chosen_match.safety_verdict.warnings)
+            elif selected_sub_id != "KEEP_ORIGINAL" and not matches:
+                warnings.append("No cheaper bioequivalent generic substitute available; dispensing prescribed brand.")
+            if med.is_narrow_therapeutic_index and not any("Narrow Therapeutic Index" in w for w in warnings):
+                warnings.append("Narrow Therapeutic Index (NTI) medicine — physician supervision recommended.")
+
+            for w in warnings:
+                entry = f"[{med.brand_name} -> {chosen_med.brand_name}] {w}"
+                if entry not in all_alerts:
+                    all_alerts.append(entry)
+
+            salts_str = ", ".join(
+                f"{s.name} {int(s.strength_value) if float(s.strength_value).is_integer() else s.strength_value}{s.strength_unit}"
+                for s in med.salts
+            )
+
+            alternatives = [
+                {
+                    "id": m.substitute_medicine.id,
+                    "brand_name": m.substitute_medicine.brand_name,
+                    "manufacturer": m.substitute_medicine.manufacturer,
+                    "regulatory_tier": m.substitute_medicine.regulatory_tier.value,
+                    "pack_size": m.substitute_medicine.pack_size,
+                    "mrp": m.substitute_medicine.mrp,
+                    "price_per_unit": m.substitute_medicine.price_per_unit,
+                    "percentage_savings": round(m.percentage_savings, 2),
+                }
+                for m in matches
+            ]
+
+            resolved_items.append({
+                "medicine_id": med.id,
+                "original_brand": med.brand_name,
+                "original_manufacturer": med.manufacturer,
+                "dosage_form": med.dosage_form.value,
+                "release_type": med.release_type.value,
+                "salts": salts_str,
+                "is_nti": med.is_narrow_therapeutic_index or any("Narrow Therapeutic Index" in w for w in warnings),
+                "frequency_label": freq_label,
+                "units_per_day": units_per_day,
+                "duration_days": duration_days,
+                "total_units": total_units,
+                "original_pack_size": med.pack_size,
+                "original_mrp": med.mrp,
+                "original_packs_needed": orig_packs,
+                "original_unit_cost": orig_unit_cost,
+                "original_pack_cost": orig_pack_cost,
+                "selected_substitute_id": "KEEP_ORIGINAL" if chosen_med.id == med.id else chosen_med.id,
+                "substitute_brand": chosen_med.brand_name,
+                "substitute_manufacturer": chosen_med.manufacturer,
+                "substitute_tier": chosen_med.regulatory_tier.value,
+                "substitute_pack_size": chosen_med.pack_size,
+                "substitute_mrp": chosen_med.mrp,
+                "optimized_packs_needed": chosen_packs,
+                "optimized_unit_cost": chosen_unit_cost,
+                "optimized_pack_cost": chosen_pack_cost,
+                "unit_savings": unit_savings,
+                "unit_savings_pct": unit_savings_pct,
+                "pack_savings": pack_savings,
+                "pack_savings_pct": pack_savings_pct,
+                "warnings": warnings,
+                "alternatives": alternatives,
+            })
+
+            orig_unit_total += orig_unit_cost
+            opt_unit_total += chosen_unit_cost
+            orig_pack_total += orig_pack_cost
+            opt_pack_total += chosen_pack_cost
+
+        unit_savings_total = round(orig_unit_total - opt_unit_total, 2)
+        unit_savings_pct_total = round((unit_savings_total / orig_unit_total) * 100.0, 2) if orig_unit_total > 0 else 0.0
+        pack_savings_total = round(orig_pack_total - opt_pack_total, 2)
+        pack_savings_pct_total = round((pack_savings_total / orig_pack_total) * 100.0, 2) if orig_pack_total > 0 else 0.0
+
+        return {
+            "items": resolved_items,
+            "unresolved_items": unresolved_items,
+            "summary": {
+                "item_count": len(resolved_items),
+                "original_unit_total": round(orig_unit_total, 2),
+                "optimized_unit_total": round(opt_unit_total, 2),
+                "unit_savings_total": unit_savings_total,
+                "unit_savings_pct": unit_savings_pct_total,
+                "original_pack_total": round(orig_pack_total, 2),
+                "optimized_pack_total": round(opt_pack_total, 2),
+                "pack_savings_total": pack_savings_total,
+                "pack_savings_pct": pack_savings_pct_total,
+                "annual_projected_unit_savings": round(unit_savings_total * 12.0, 2),
+                "annual_projected_pack_savings": round(pack_savings_total * 12.0, 2),
+                "safety_alerts": all_alerts,
+            },
+        }
+
     @classmethod
     def load_chronic_baskets(cls, file_path: str | Path, repository) -> List[Dict[str, Any]]:
         """Load and resolve predefined chronic disease baskets from JSON."""

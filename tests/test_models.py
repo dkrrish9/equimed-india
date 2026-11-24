@@ -136,6 +136,20 @@ class TestModels(unittest.TestCase):
         salt_mg = SaltComponent("Paracetamol", 500.0, "mg")
         self.assertEqual(salt_g.normalized_key(), salt_mg.normalized_key())
 
+    def test_prescription_item_pack_billing(self):
+        # 14 tablets required with pack_size=10 -> 2 retail strips needed
+        med = Medicine(
+            id="M-PACK", brand_name="PackTest 10", manufacturer="Mfg",
+            salts=[self.salt1], dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE, pack_size=10,
+            mrp=100.0, price_per_unit=10.0, regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR
+        )
+        item = PrescriptionItem(medicine=med, units_per_day=2, duration_days=7)
+        self.assertEqual(item.total_units, 14)
+        self.assertEqual(item.total_cost, 140.0)
+        self.assertEqual(item.packs_needed, 2)
+        self.assertEqual(item.pack_total_cost, 200.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -83,6 +83,7 @@ class TestOptimizer(unittest.TestCase):
 
     def test_all_predefined_baskets_produce_substantial_savings(self):
         baskets = PrescriptionOptimizer.load_chronic_baskets(self.baskets_path, self.repo)
+        self.assertGreaterEqual(len(baskets), 33)
         for b in baskets:
             res = self.optimizer.optimize_basket(
                 basket_id=b["basket_id"],
@@ -91,6 +92,36 @@ class TestOptimizer(unittest.TestCase):
             )
             # All clinical chronic disease packages in India must yield > 65% generic savings
             self.assertGreater(res.monthly_savings_percentage, 65.0)
+
+    def test_custom_cart_mixed_forms_and_pack_billing(self):
+        # 14 days BD Augmentin (28 units -> 3 strips of 10) + 1 Inhaler + 30 days Thyronorm (NTI)
+        res = self.optimizer.optimize_custom_cart([
+            {"brand_name": "Augmentin 625 Duo", "units_per_day": 2, "duration_days": 14, "frequency_label": "1-0-1 (BD)"},
+            {"brand_name": "Foracort 200 Inhaler (120 MDI)", "units_per_day": 1, "duration_days": 1, "frequency_label": "1 pack"},
+            {"brand_name": "Thyronorm 50", "units_per_day": 1, "duration_days": 30, "frequency_label": "1-0-0 (OD)"},
+        ])
+        self.assertEqual(res["summary"]["item_count"], 3)
+        self.assertGreater(res["summary"]["pack_savings_total"], 0.0)
+        self.assertGreater(res["summary"]["unit_savings_total"], 0.0)
+        self.assertGreaterEqual(res["summary"]["pack_savings_pct"], 60.0)
+
+        aug = res["items"][0]
+        self.assertEqual(aug["total_units"], 28)
+        self.assertEqual(aug["original_packs_needed"], 3)
+        self.assertGreater(len(aug["alternatives"]), 0)
+
+        # Safety alert aggregated for NTI drug
+        self.assertTrue(any("Narrow Therapeutic Index" in a for a in res["summary"]["safety_alerts"]))
+
+    def test_custom_cart_keep_original_and_unresolved(self):
+        res = self.optimizer.optimize_custom_cart([
+            {"brand_name": "Telma 40", "units_per_day": 1, "duration_days": 30, "selected_substitute_id": "KEEP_ORIGINAL"},
+            {"brand_name": "ImaginaryMiracleTablet 999", "units_per_day": 1, "duration_days": 5},
+        ])
+        self.assertEqual(res["summary"]["item_count"], 1)
+        self.assertEqual(res["summary"]["pack_savings_total"], 0.0)
+        self.assertEqual(res["items"][0]["selected_substitute_id"], "KEEP_ORIGINAL")
+        self.assertEqual(res["unresolved_items"], ["ImaginaryMiracleTablet 999"])
 
 
 if __name__ == "__main__":

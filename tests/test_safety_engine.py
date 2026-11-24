@@ -333,6 +333,87 @@ class TestSafetyEngine(unittest.TestCase):
         self.assertEqual(val, 1000.0)
         self.assertEqual(unit, "mg")
 
+    def test_reject_immediate_to_sustained_release_symmetric(self):
+        # Prescribed IR substituted with SR must also be rejected symmetrically
+        ir_med = Medicine(
+            id="MED-IR-SYM",
+            brand_name="Metformin IR 500",
+            manufacturer="Innovator",
+            salts=[SaltComponent("Metformin", 500.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE,
+            pack_size=10,
+            mrp=30.0,
+            price_per_unit=3.0,
+            regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR,
+        )
+        sr_cand = Medicine(
+            id="MED-SR-SYM",
+            brand_name="Metformin SR 500 Generic",
+            manufacturer="PMBJP",
+            salts=[SaltComponent("Metformin", 500.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.SUSTAINED_RELEASE,
+            pack_size=10,
+            mrp=10.0,
+            price_per_unit=1.0,
+            regulatory_tier=RegulatoryTier.PMBJP_JAN_AUSHADHI,
+        )
+        verdict = self.engine.validate_substitution(ir_med, sr_cand)
+        self.assertFalse(verdict.is_safe)
+        self.assertIn("Critical release kinetics clash", verdict.rejection_reason)
+
+    def test_liquid_concentration_and_inhaler_unit_normalization(self):
+        # 125 mg/5ml == 25 mg/ml
+        val1, u1 = SafetyEngine.normalize_strength(125.0, "mg/5ml")
+        val2, u2 = SafetyEngine.normalize_strength(25.0, "mg/ml")
+        self.assertEqual((val1, u1), (25.0, "mg/ml"))
+        self.assertEqual((val2, u2), (25.0, "mg/ml"))
+
+        # 0.2 mg/puff == 200 mcg/puff
+        p1, pu1 = SafetyEngine.normalize_strength(0.2, "mg/puff")
+        p2, pu2 = SafetyEngine.normalize_strength(200.0, "mcg/puff")
+        self.assertEqual((p1, pu1), (p2, pu2))
+
+    def test_nti_detection_by_salt_synonym_warfarin_sodium(self):
+        # Even without is_narrow_therapeutic_index=True flag, Warfarin Sodium must trigger NTI warning
+        orig = Medicine(
+            id="MED-WAR1",
+            brand_name="WarfBrand 5",
+            manufacturer="Innovator",
+            salts=[SaltComponent("Warfarin Sodium", 5.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE,
+            pack_size=10,
+            mrp=50.0,
+            price_per_unit=5.0,
+            regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR,
+            is_narrow_therapeutic_index=False,
+        )
+        cand = Medicine(
+            id="MED-WAR2",
+            brand_name="Warfarin 5 Generic",
+            manufacturer="PMBJP",
+            salts=[SaltComponent("Warfarin", 5.0, "mg")],
+            dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE,
+            pack_size=10,
+            mrp=15.0,
+            price_per_unit=1.5,
+            regulatory_tier=RegulatoryTier.PMBJP_JAN_AUSHADHI,
+            is_narrow_therapeutic_index=False,
+        )
+        verdict = self.engine.validate_substitution(orig, cand)
+        self.assertTrue(verdict.is_safe)
+        self.assertTrue(any("Narrow Therapeutic Index" in w for w in verdict.warnings))
+
+    def test_non_equivalent_ester_salts_kept_distinct(self):
+        # Metoprolol Succinate must NOT normalize into Metoprolol Tartrate
+        self.assertNotEqual(
+            SafetyEngine.normalize_salt_name("Metoprolol Succinate"),
+            SafetyEngine.normalize_salt_name("Metoprolol Tartrate"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

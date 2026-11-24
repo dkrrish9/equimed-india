@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -15,7 +16,7 @@ class MedicineRepository:
 
     Maintains:
     - ID Index: O(1) by primary ID.
-    - Brand Name Index: O(1) normalized brand lookup.
+    - Brand Name Index: O(1) normalized brand lookup (collision-safe).
     - Chemical Salt Fingerprint Index: O(1) lookup of all identical salt combinations.
     - Inverted Salt Component Index: Fast lookup by constituent salt active ingredients.
     """
@@ -23,14 +24,32 @@ class MedicineRepository:
     def __init__(self) -> None:
         self._by_id: Dict[str, Medicine] = {}
         self._by_brand_lower: Dict[str, Medicine] = {}
+        self._by_brand_all: Dict[str, List[Medicine]] = {}
+        self._by_brand_norm: Dict[str, List[Medicine]] = {}
         self._by_fingerprint: Dict[str, List[Medicine]] = {}
         self._by_salt: Dict[str, Set[str]] = {}  # salt_name -> set of medicine IDs
+
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        """Lowercase and collapse hyphens/punctuation to single spaces."""
+        cleaned = re.sub(r"[-_/.,()+]+", " ", text.strip().lower())
+        return re.sub(r"\s+", " ", cleaned).strip()
 
     def add(self, medicine: Medicine) -> None:
         """Add medicine to all repository indexes."""
         self._by_id[medicine.id] = medicine
         brand_clean = medicine.brand_name.strip().lower()
-        self._by_brand_lower[brand_clean] = medicine
+        # Keep deterministic first-or-cheapest primary brand without silently erasing collisions
+        if brand_clean not in self._by_brand_lower:
+            self._by_brand_lower[brand_clean] = medicine
+        self._by_brand_all.setdefault(brand_clean, [])
+        if medicine not in self._by_brand_all[brand_clean]:
+            self._by_brand_all[brand_clean].append(medicine)
+
+        brand_norm = self._normalize_text(medicine.brand_name)
+        self._by_brand_norm.setdefault(brand_norm, [])
+        if medicine not in self._by_brand_norm[brand_norm]:
+            self._by_brand_norm[brand_norm].append(medicine)
 
         fp = medicine.salt_fingerprint()
         if fp not in self._by_fingerprint:
@@ -64,28 +83,78 @@ class MedicineRepository:
         return self._by_id.get(med_id)
 
     def get_by_brand_exact(self, brand_name: str) -> Optional[Medicine]:
-        return self._by_brand_lower.get(brand_name.strip().lower())
+        cleaned = brand_name.strip().lower()
+        exact = self._by_brand_lower.get(cleaned)
+        if exact:
+            return exact
+        norm = self._normalize_text(brand_name)
+        matches = self._by_brand_norm.get(norm, [])
+        return matches[0] if matches else None
 
     def search_by_brand(self, query: str, limit: int = 10) -> List[Medicine]:
-        """Search by prefix or substring with exact matches prioritized."""
+        """Search by brand name (exact, prefix, token/normalized, substring) and active salt."""
         q = query.strip().lower()
         if not q:
             return []
 
+        norm_q = self._normalize_text(query)
+        q_tokens = [tok for tok in norm_q.split(" ") if tok]
+
         exact_matches: List[Medicine] = []
+        norm_exact_matches: List[Medicine] = []
         prefix_matches: List[Medicine] = []
+        token_matches: List[Medicine] = []
         contains_matches: List[Medicine] = []
+        salt_matches: List[Medicine] = []
 
-        for name, med in self._by_brand_lower.items():
-            if name == q:
-                exact_matches.append(med)
-            elif name.startswith(q):
-                prefix_matches.append(med)
-            elif q in name:
-                contains_matches.append(med)
+        for name, meds in self._by_brand_all.items():
+            for med in meds:
+                norm_name = self._normalize_text(name)
+                if name == q:
+                    exact_matches.append(med)
+                elif norm_q and norm_name == norm_q:
+                    norm_exact_matches.append(med)
+                elif name.startswith(q) or (norm_q and norm_name.startswith(norm_q)):
+                    prefix_matches.append(med)
+                elif q in name:
+                    contains_matches.append(med)
+                elif q_tokens and all(tok in norm_name for tok in q_tokens):
+                    token_matches.append(med)
 
-        results = exact_matches + prefix_matches + contains_matches
-        return results[:limit]
+        # Active ingredient / canonical salt lookup (e.g. "Acetaminophen" -> Paracetamol brands)
+        canonical_salt_q = SafetyEngine.normalize_salt_name(q)
+        salt_id_candidates: Set[str] = set()
+        if canonical_salt_q in self._by_salt:
+            salt_id_candidates.update(self._by_salt[canonical_salt_q])
+        else:
+            for salt_key, med_ids in self._by_salt.items():
+                if (norm_q and norm_q in salt_key) or (q_tokens and all(t in salt_key for t in q_tokens)):
+                    salt_id_candidates.update(med_ids)
+
+        for mid in salt_id_candidates:
+            med = self._by_id.get(mid)
+            if med:
+                salt_matches.append(med)
+
+        # Prioritize branded originators slightly lower/higher? Keep stable deterministic ordering
+        salt_matches.sort(key=lambda m: m.brand_name.lower())
+
+        seen_ids: Set[str] = set()
+        results: List[Medicine] = []
+        for med in (
+            exact_matches
+            + norm_exact_matches
+            + prefix_matches
+            + contains_matches
+            + token_matches
+            + salt_matches
+        ):
+            if med.id not in seen_ids:
+                seen_ids.add(med.id)
+                results.append(med)
+                if len(results) >= limit:
+                    break
+        return results
 
     def get_by_fingerprint(self, fingerprint: str) -> List[Medicine]:
         """Return all medicines with identical salt composition, dosage form, and release type."""
