@@ -1,0 +1,34 @@
+id,name,price(₹),Is_discontinued,manufacturer_name,type,pack_size_label,short_composition1,short_composition2
+101,Dolo-Test 650 Tablet,30.00,FALSE,Micro Labs Ltd,allopathy,strip of 15 tablets,Paracetamol (650mg),
+102,Augmentin-AZ 625 Tablet,210.00,FALSE,GSK India,allopathy,strip of 10 tablets,Amoxycillin (500mg) +,Clavulanic Acid (125mg)
+103,Augmentin-AZ Jan Aushadhi 625 Tablet,50.00,FALSE,BPPI / Jan Aushadhi,allopathy,strip of 10 tablets,Amoxicillin (500mg),Clavulanate Potassium (125mg)
+104,OldBrand-Discontinued 625 Tablet,180.00,TRUE,Legacy Pharma,allopathy,strip of 10 tablets,Amoxycillin (500mg),Clavulanic Acid (125mg)
+105,UltraCheap-Discontinued 625 Tablet,10.00,TRUE,Defunct Labs,allopathy,strip of 10 tablets,Amoxicillin (500mg),Clavulanic Acid (125mg)
+106,D3-Nested 60K Capsule,240.00,FALSE,Sun Pharma,allopathy,strip of 4 capsules,Cholecalciferol (Vitamin D3) (60000IU),
+107,CalBox 1000 Tablet,500.00,FALSE,Cipla Ltd,allopathy,box of 10 strips of 10 tablets,"Calcium Carbonate (1,000mg)",
+108,Alpra-Micro 0.25 Tablet,45.00,FALSE,Torrent Pharma,allopathy,strip of 15 tablets,Alprazolam (.25mg),
+109,Dr. Morepen Paracetamol 500 Tablet,20.00,FALSE,Dr. Morepen Ltd,allopathy,strip of 10 tablets,Paracetamol (500mg),
+110,GlucoMets SR 500 Tablet,35.00,FALSE,USV Ltd,allopathy,strip of 10 tablets,Metformin Hydrochloride (500mg),
+111,Urimax-AZ MR 0.4 Capsule,280.00,FALSE,Cipla Ltd,allopathy,strip of 15 capsules,Tamsulosin Hydrochloride (0.4mg),
+112,Panto-AZ DR 40 Tablet,110.00,FALSE,Alkem Lab,allopathy,strip of 10 tablets,Pantoprazole Sodium (40mg),
+113,FebriCalm 250 Syrup 60ml,55.00,FALSE,GSK India,allopathy,bottle of 60 ml syrup,Paracetamol (250mg/5ml),
+114,FebriCalm Generic Syrup 100ml,35.00,FALSE,Generic Care,allopathy,bottle of 100 ml syrup,Paracetamol (250mg/5ml),
+115,BreatheEasy 200 Inhaler,290.00,FALSE,Cipla Ltd,allopathy,inhaler of 200 metered doses,Budesonide (200mcg/puff),
+116,NasalMist Spray,180.00,FALSE,Abbott,allopathy,bottle of 120 metered doses nasal spray,Fluticasone Propionate (50mcg/spray),
+117,Moxiflox Eye Drops,120.00,FALSE,Alcon,allopathy,bottle of 5 ml eye drops,Moxifloxacin (0.5% w/v),
+118,Mupiro-AZ Ointment,160.00,FALSE,GSK,allopathy,tube of 15 gm ointment,Mupirocin (2% w/w),
+119,Glargine-AZ Pen,490.00,FALSE,Biocon,allopathy,prefilled syringe of 3 ml injection,Insulin Glargine (100IU/ml),
+120,Telma 40,999.00,FALSE,Fake A-Z Duplicate,allopathy,strip of 15 tablets,Telmisartan (40mg),
+121,DupBrand 10 Tablet,100.00,TRUE,Old Dup Mfg,allopathy,strip of 10 tablets,Cetirizine (10mg),
+122,DupBrand 10 Tablet,40.00,FALSE,Active Dup Mfg,allopathy,strip of 10 tablets,Cetirizine (10mg),
+123,MultiInOneCell Tablet,80.00,FALSE,Combo Labs,allopathy,strip of 10 tablets,Aceclofenac (100mg) + Paracetamol (325mg),
+124,Warf-AZ 5 Tablet,45.00,FALSE,NTI Pharma,allopathy,strip of 10 tablets,Warfarin Sodium (5mg),
+201,Truncated-3Salt Plus,120.00,FALSE,Some Pharma,allopathy,strip of 10 tablets,Paracetamol (325mg),Aceclofenac (100mg) +
+202,Truncated-Dots,120.00,FALSE,Some Pharma,allopathy,strip of 10 tablets,Paracetamol (325mg),Caffeine (30mg)...
+203,Dangling-Plus-Comp1,50.00,FALSE,Some Pharma,allopathy,strip of 10 tablets,Paracetamol (500mg) +,
+204,Missing-Strength Tablet,40.00,FALSE,Some Pharma,allopathy,strip of 10 tablets,Paracetamol,
+205,Zero-Price Tablet,0,FALSE,Some Pharma,allopathy,strip of 10 tablets,Paracetamol (500mg),
+206,Blank-Price Tablet,,FALSE,Some Pharma,allopathy,strip of 10 tablets,Paracetamol (500mg),
+207,Arsenicum Album 30C,95.00,FALSE,SBL,homeopathy,bottle of 30 ml drops,Arsenicum Album (30C),
+208,Keto-AZ Soap,150.00,FALSE,Dermacare,allopathy,pack of 75 gm soap,Ketoconazole (2% w/w),
+209,ORS-AZ Sachet,20.00,FALSE,Electral,allopathy,packet of 1 sachet,Sodium Chloride (2.6g),

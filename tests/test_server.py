@@ -142,8 +142,17 @@ class TestEquiMedServer(unittest.TestCase):
         self.assertEqual(status, 200)
         payload = json.loads(body)
         self.assertEqual(payload["basket_id"], "BASKET-01")
+        self.assertEqual(payload["strategy"], "Maximum Cost Savings")
         self.assertGreater(payload["monthly_savings_amount"], 0)
         self.assertGreater(payload["monthly_savings_percentage"], 75.0)
+
+    def test_api_optimize_basket_with_strategy(self):
+        status, _, body = self._request("GET", "/api/optimize-basket?basket_id=BASKET-01&strategy=jan_aushadhi")
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        self.assertEqual(payload["basket_id"], "BASKET-01")
+        self.assertEqual(payload["strategy"], "Jan Aushadhi (PMBJP) Priority")
+        self.assertGreater(payload["monthly_savings_amount"], 0)
 
     def test_api_optimize_basket_invalid_id(self):
         status, _, body = self._request("GET", "/api/optimize-basket?basket_id=INVALID-BASKET-99")
@@ -188,6 +197,70 @@ class TestEquiMedServer(unittest.TestCase):
         status, _, body = self._request("POST", "/api/optimize-cart", body_data="{not-json")
         self.assertEqual(status, 400)
         self.assertIn("error", json.loads(body))
+
+    def test_api_ui_config(self):
+        status, headers, body = self._request("GET", "/api/ui-config")
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", headers.get("content-type", ""))
+        cfg = json.loads(body)
+        self.assertGreater(len(cfg.get("presets", [])), 0)
+        self.assertTrue(all("brand_name" in p and "label" in p for p in cfg["presets"]))
+        self.assertTrue(bool(cfg.get("default_query")))
+        self.assertEqual(len(cfg.get("strategies", [])), 3)
+        self.assertEqual(
+            set(cfg.get("pack_only_forms", [])),
+            {"SYRUP", "INHALER", "INJECTION", "DROPS", "OINTMENT"},
+        )
+        self.assertIn("PMBJP_JAN_AUSHADHI", cfg.get("regulatory_tiers", {}))
+        self.assertIn("frequencies", cfg.get("regimen_options", {}))
+        self.assertEqual(cfg["regimen_options"].get("duration_min"), 1)
+        self.assertEqual(cfg["regimen_options"].get("duration_max"), 365)
+        self.assertIn("debounce_ms", cfg.get("search_config", {}))
+        cart_cfg = cfg.get("cart_config", {})
+        self.assertEqual(cart_cfg.get("default_strategy"), "jan_aushadhi")
+        self.assertEqual(cart_cfg.get("keep_original_sentinel"), "KEEP_ORIGINAL")
+        self.assertEqual(len(cart_cfg.get("billing_modes", [])), 2)
+
+    def test_api_substitutes_plain_english_fields(self):
+        status, _, body = self._request("GET", "/api/substitutes?brand=Telma%2040")
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        self.assertFalse(payload["is_pack_only"])
+        self.assertEqual(payload["unit_label"], "tablet")
+        self.assertEqual(payload["original_form_label"], "Tablet")
+        self.assertEqual(payload["original_release_label"], "Normal Release")
+        self.assertIn("original_pack_label", payload)
+        self.assertGreater(len(payload["matches"]), 0)
+        self.assertIn("substitute_pack_label", payload["matches"][0])
+        self.assertIn("substitute_tier_label", payload["matches"][0])
+
+        status_s, _, body_s = self._request(
+            "GET",
+            "/api/substitutes?brand=Calpol%20250%20Pediatric%20Suspension%20(60ml)",
+        )
+        self.assertEqual(status_s, 200)
+        syrup_payload = json.loads(body_s)
+        self.assertTrue(syrup_payload["is_pack_only"])
+        self.assertEqual(syrup_payload["unit_label"], "bottle")
+        self.assertEqual(syrup_payload["original_form_label"], "Syrup / Liquid")
+        if syrup_payload["matches"]:
+            self.assertNotEqual(syrup_payload["matches"][0]["substitute_pack_label"], "Pack of 1")
+
+    def test_root_html_no_hardcoded_lookup_presets_or_old_count(self):
+        status, _, body = self._request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertNotIn("1,021 FORMULATIONS ACTIVE", body)
+        self.assertIn("Find Cheaper Same-Salt Medicines", body)
+        self.assertNotIn("onclick=\"quickSearch('Telma 40')\"", body)
+
+    def test_root_html_cart_revamped_and_chronic_section_removed(self):
+        status, _, body = self._request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertIn("My Medicine Bill & Savings", body)
+        self.assertNotIn('id="chronicPanel"', body)
+        self.assertNotIn("Chronic Therapy Regimen Simulation", body)
+        self.assertNotIn("33 CLINICAL SCENARIOS", body)
+        self.assertNotIn('<option value="jan_aushadhi">', body)
 
     def test_api_404_not_found(self):
         status, _, body = self._request("GET", "/api/non_existent_route")

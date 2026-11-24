@@ -6,7 +6,7 @@ from typing import List, Optional
 
 from src.models import Medicine, SubstitutionMatch
 from src.observer import ObservableSubject
-from src.repository import MedicineRepository
+from src.repository import RepositoryType
 from src.safety_engine import SafetyEngine
 from src.strategy import MaxSavingsStrategy, SubstitutionStrategy
 
@@ -16,7 +16,7 @@ class SearchEngine(ObservableSubject):
 
     def __init__(
         self,
-        repository: MedicineRepository,
+        repository: RepositoryType,
         safety_engine: Optional[SafetyEngine] = None,
         default_strategy: Optional[SubstitutionStrategy] = None,
     ) -> None:
@@ -60,13 +60,20 @@ class SearchEngine(ObservableSubject):
         if not original:
             return []
 
-        # 2. Retrieve potential candidates from repository (O(1) fingerprint + active salt index)
-        fingerprint = original.salt_fingerprint()
-        raw_candidates = self.repository.get_by_fingerprint(fingerprint)
+        # 2. Retrieve potential candidates from repository (SQLite pre-filtered pool or in-memory index)
+        if hasattr(self.repository, "get_substitute_candidates"):
+            pre_filtered = self.repository.get_substitute_candidates(
+                original,
+                max_candidates=max(30, limit * 3),
+            )
+            candidate_pool = {m.id: m for m in pre_filtered}
+        else:
+            fingerprint = original.salt_fingerprint()
+            raw_candidates = self.repository.get_by_fingerprint(fingerprint)
 
-        # Also search by constituent salts to catch formulation variations (e.g. tablet vs capsule)
-        salt_candidates = self.repository.get_candidates_by_salts(original.salts)
-        candidate_pool = {m.id: m for m in (raw_candidates + salt_candidates)}
+            # Also search by constituent salts to catch formulation variations (e.g. tablet vs capsule)
+            salt_candidates = self.repository.get_candidates_by_salts(original.salts)
+            candidate_pool = {m.id: m for m in (raw_candidates + salt_candidates)}
 
         # 3. Clinical Validation & Economic Evaluation
         valid_matches: List[SubstitutionMatch] = []

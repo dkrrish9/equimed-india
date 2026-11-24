@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 # Ensure project root is in sys.path when executed directly
@@ -13,21 +13,19 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from src.models import PrescriptionItem
+from src.models import DosageForm, Medicine, PrescriptionItem, RegulatoryTier, ReleaseType
 from src.observer import AuditLogObserver, SafetyAlertObserver, SavingsTrackerObserver
 from src.optimizer import PrescriptionOptimizer
-from src.repository import MedicineRepository
+from src.repository import load_default_repository
 from src.safety_engine import SafetyEngine
 from src.search_engine import SearchEngine
 from src.strategy import get_strategy
 
 # Global state instances
-_repo = MedicineRepository()
-_catalog_path = Path(__file__).resolve().parent.parent / "data" / "medicine_catalog.json"
 _baskets_path = Path(__file__).resolve().parent.parent / "data" / "chronic_baskets.json"
-_repo.load_from_json(_catalog_path)
+_repo = load_default_repository()
 
 _audit = AuditLogObserver()
 _savings = SavingsTrackerObserver()
@@ -39,6 +37,150 @@ _engine.attach(_savings)
 _engine.attach(_safety_alerts)
 
 _optimizer = PrescriptionOptimizer(_engine)
+
+_FORM_DISPLAY_META: Dict[DosageForm, Dict[str, str]] = {
+    DosageForm.TABLET: {"label": "Tablet", "unit_label": "tablet"},
+    DosageForm.CAPSULE: {"label": "Capsule", "unit_label": "capsule"},
+    DosageForm.SYRUP: {"label": "Syrup / Liquid", "unit_label": "bottle"},
+    DosageForm.INHALER: {"label": "Inhaler / Spray", "unit_label": "inhaler / spray"},
+    DosageForm.INJECTION: {"label": "Injection", "unit_label": "injection / vial"},
+    DosageForm.DROPS: {"label": "Drops", "unit_label": "drop bottle"},
+    DosageForm.OINTMENT: {"label": "Cream / Ointment", "unit_label": "tube / pack"},
+}
+
+_RELEASE_DISPLAY_LABELS: Dict[ReleaseType, str] = {
+    ReleaseType.IMMEDIATE_RELEASE: "Normal Release",
+    ReleaseType.SUSTAINED_RELEASE: "Slow Release (SR)",
+    ReleaseType.EXTENDED_RELEASE: "Extended Release (ER/XR)",
+    ReleaseType.CONTROLLED_RELEASE: "Controlled Release (CR)",
+    ReleaseType.MODIFIED_RELEASE: "Modified Release (MR)",
+    ReleaseType.ENTERIC_COATED: "Stomach-Safe Coating (EC/DR)",
+}
+
+_TIER_DISPLAY_META: Dict[RegulatoryTier, Dict[str, str]] = {
+    RegulatoryTier.PMBJP_JAN_AUSHADHI: {
+        "label": "Govt. Jan Aushadhi",
+        "badge_class": "badge-pmbjp",
+    },
+    RegulatoryTier.WHO_GMP_GENERIC: {
+        "label": "WHO-GMP Certified",
+        "badge_class": "badge-who",
+    },
+    RegulatoryTier.CDSCO_APPROVED_GENERIC: {
+        "label": "CDSCO Approved",
+        "badge_class": "badge-cdsco",
+    },
+    RegulatoryTier.BRANDED_GENERIC: {
+        "label": "Retail Generic Brand",
+        "badge_class": "badge-branded",
+    },
+    RegulatoryTier.BRANDED_INNOVATOR: {
+        "label": "Original Brand",
+        "badge_class": "badge-branded",
+    },
+}
+
+_PRESET_CANDIDATES: List[tuple[str, str]] = [
+    ("Telma 40", "Telma 40"),
+    ("Glycomet-GP 2", "Glycomet-GP 2"),
+    ("Augmentin 625 Duo", "Augmentin 625"),
+    ("Foracort 200 Inhaler (120 MDI)", "Foracort 200 Inhaler"),
+    ("Lantus SoloSTAR Pen (3ml)", "Lantus Injection"),
+    ("Calpol 250 Pediatric Suspension (60ml)", "Calpol 250 Syrup"),
+    ("Vigamox 0.5% Eye Drops (5ml)", "Vigamox Drops"),
+    ("Thyronorm 50", "Thyronorm 50 (Sensitive Dose)"),
+]
+
+_LOOKUP_STRATEGIES: List[Dict[str, str]] = [
+    {"id": "max_savings", "label": "Lowest Price First"},
+    {"id": "jan_aushadhi", "label": "Govt. Jan Aushadhi Stores First"},
+    {"id": "balanced", "label": "Best Balance (Price + Quality)"},
+]
+
+
+def _format_pack_label(med: Medicine) -> str:
+    """Return human-readable strip/bottle/container description."""
+    if med.pack_size_label:
+        return med.pack_size_label
+    meta = _FORM_DISPLAY_META.get(med.dosage_form, {"label": "Unit", "unit_label": "unit"})
+    unit_word = meta["unit_label"]
+    if med.dosage_form in SafetyEngine.PACK_ONLY_FORMS:
+        return f"1 {unit_word}"
+    plural = unit_word if med.pack_size == 1 or unit_word.endswith("s") else f"{unit_word}s"
+    return f"Pack of {med.pack_size} {plural}"
+
+
+def _build_ui_config() -> Dict[str, Any]:
+    """Build Section 1 UI configuration from live repository & domain constants."""
+    verified_presets: List[Dict[str, Any]] = []
+    for brand_name, short_label in _PRESET_CANDIDATES:
+        med = _repo.get_by_brand_exact(brand_name)
+        if med:
+            verified_presets.append({
+                "brand_name": med.brand_name,
+                "label": short_label,
+                "is_nti": med.is_narrow_therapeutic_index,
+            })
+
+    default_query = verified_presets[0]["brand_name"] if verified_presets else ""
+    if not default_query:
+        sample = _repo.search_by_brand("a", limit=1)
+        default_query = sample[0].brand_name if sample else ""
+
+    return {
+        "presets": verified_presets,
+        "default_query": default_query,
+        "strategies": _LOOKUP_STRATEGIES,
+        "pack_only_forms": sorted(f.value for f in SafetyEngine.PACK_ONLY_FORMS),
+        "regulatory_tiers": {k.value: v for k, v in _TIER_DISPLAY_META.items()},
+        "dosage_forms": {k.value: v for k, v in _FORM_DISPLAY_META.items()},
+        "release_types": {k.value: v for k, v in _RELEASE_DISPLAY_LABELS.items()},
+        "regimen_options": {
+            "frequencies": [
+                {"value": 1, "label": "Once a day (1-0-0)", "short": "1-0-0 (OD)", "cart_short": "1/day"},
+                {"value": 2, "label": "Twice a day (1-0-1)", "short": "1-0-1 (BD)", "cart_short": "2/day"},
+                {"value": 3, "label": "3 times a day (1-1-1)", "short": "1-1-1 (TDS)", "cart_short": "3/day"},
+                {"value": 4, "label": "4 times a day (1-1-1-1)", "short": "1-1-1-1 (QID)", "cart_short": "4/day"},
+            ],
+            "durations": [
+                {"value": 5, "label": "5 days"},
+                {"value": 7, "label": "7 days (1 week)"},
+                {"value": 10, "label": "10 days"},
+                {"value": 15, "label": "15 days"},
+                {"value": 30, "label": "30 days (1 month)"},
+                {"value": 90, "label": "90 days (3 months)"},
+            ],
+            "default_duration": 30,
+            "duration_min": 1,
+            "duration_max": 365,
+            "pack_min": 1,
+            "pack_max": 24,
+            "pack_default": 1,
+        },
+        "cart_config": {
+            "default_strategy": "jan_aushadhi",
+            "default_billing_mode": "pack",
+            "keep_original_sentinel": "KEEP_ORIGINAL",
+            "billing_modes": [
+                {
+                    "id": "pack",
+                    "label": "Full Strips / Bottles You Buy",
+                    "short_label": "Full Strips / Bottles",
+                },
+                {
+                    "id": "unit",
+                    "label": "Exact Tablet / Dose Cost",
+                    "short_label": "Exact Dose Cost",
+                },
+            ],
+        },
+        "search_config": {
+            "min_query_chars": 2,
+            "autocomplete_limit": 15,
+            "debounce_ms": 180,
+            "currency_symbol": "₹",
+        },
+    }
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -682,6 +824,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       color: var(--warn);
       border: 1px solid var(--warn-border);
     }
+    .badge-discontinued {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid var(--danger-border);
+    }
 
     /* Clinical Alert Box */
     .alert-banner {
@@ -697,6 +844,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       align-items: flex-start;
       gap: 10px;
       line-height: 1.4;
+    }
+
+    /* Plain-English Results Section Header */
+    .results-explainer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 20px;
+      padding: 12px 16px;
+      background: var(--accent-surface);
+      border: 1px solid var(--accent-border);
+      border-radius: var(--radius-sm);
+    }
+    .results-explainer-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .results-explainer-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
     }
 
     /* Simulation Metrics Bar */
@@ -752,7 +923,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     @media print {
       body { background: #ffffff !important; color: #000000 !important; }
-      .navbar, #lookupPanel, #chronicPanel, footer, .no-print, .toast-notice { display: none !important; }
+      .navbar, #lookupPanel, footer, .no-print, .toast-notice { display: none !important; }
       #cartPanel { border: none !important; box-shadow: none !important; padding: 0 !important; }
       .panel, .stat-box, .table-container { background: #ffffff !important; border-color: #cbd5e1 !important; color: #000000 !important; }
       .print-only-header { display: block !important; margin-bottom: 16px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; }
@@ -782,17 +953,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="nav-meta">
       <div class="meta-stat">
         <span class="status-dot"></span>
-        <span id="navCatalogCount" class="mono">1,021 FORMULATIONS ACTIVE</span>
+        <span id="navCatalogCount" class="mono">{{CATALOG_COUNT}} FORMULATIONS ACTIVE</span>
       </div>
       <div class="meta-stat">
         <span class="mono">CDSCO / IP 2026</span>
       </div>
-      <button class="theme-toggle" onclick="scrollToCart()" aria-label="Jump to Prescription Cart">
+      <button class="theme-toggle" onclick="scrollToCart()" aria-label="Jump to My Medicine Bill">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
           <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
         </svg>
-        <span>Prescription Cart</span>
+        <span>My Medicine Bill</span>
         <span id="navCartCount" class="cart-badge">0</span>
       </button>
       <button id="themeToggleBtn" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle display theme">
@@ -806,42 +977,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   <main class="app-shell">
 
-    <!-- Section 1: Formulary Search -->
+    <!-- Section 1: Find Cheaper Same-Salt Medicines -->
     <section id="lookupPanel" class="panel">
       <div class="view-header">
         <div>
-          <h2 class="section-title">Formulary Bioequivalence Lookup</h2>
-          <p class="section-desc">Search by brand name or active chemical salt, inspect bioequivalent alternatives, and add to your prescription cart.</p>
+          <h2 class="section-title">Find Cheaper Same-Salt Medicines</h2>
+          <p class="section-desc">Type your prescribed medicine name or ingredient to see safe, cheaper alternatives with the exact same medicine inside.</p>
         </div>
       </div>
 
-      <!-- Quick Presets -->
-      <div class="presets-row">
-        <span class="presets-label">Formulation Presets:</span>
-        <span class="chip" onclick="quickSearch('Telma 40')">Telma 40</span>
-        <span class="chip" onclick="quickSearch('Glycomet-GP 2')">Glycomet-GP 2</span>
-        <span class="chip" onclick="quickSearch('Augmentin 625 Duo')">Augmentin 625</span>
-        <span class="chip" onclick="quickSearch('Foracort 200 Inhaler (120 MDI)')">Foracort 200 Inhaler</span>
-        <span class="chip" onclick="quickSearch('Lantus SoloSTAR Pen (3ml)')">Lantus Injection</span>
-        <span class="chip" onclick="quickSearch('Calpol 250 Pediatric Suspension (60ml)')">Calpol 250 Syrup</span>
-        <span class="chip" onclick="quickSearch('Vigamox 0.5% Eye Drops (5ml)')">Vigamox Drops</span>
-        <span class="chip" onclick="quickSearch('Thyronorm 50')">Thyronorm 50 (NTI)</span>
+      <!-- Quick Presets (populated dynamically from /api/ui-config) -->
+      <div class="presets-row" id="presetsRow">
+        <span class="presets-label">Quick Examples:</span>
       </div>
 
       <!-- Search Inputs -->
       <form class="search-row" onsubmit="event.preventDefault(); performSearch();">
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="brandInput" list="medSuggestions" autocomplete="off" placeholder="Search brand or chemical salt (e.g., Telma 40, Acetaminophen, Budesonide)..." value="Telma 40" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); performSearch(); }">
+          <input type="text" id="brandInput" list="medSuggestions" autocomplete="off" placeholder="Type medicine name or salt (e.g., Dolo 650, Telma 40, Paracetamol)..." value="" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); performSearch(); }">
           <datalist id="medSuggestions"></datalist>
         </div>
-        <select id="strategySelect" aria-label="Ranking Strategy" onchange="performSearch()">
-          <option value="max_savings">Maximum Price Savings</option>
-          <option value="jan_aushadhi">Jan Aushadhi (PMBJP) Priority</option>
-          <option value="balanced">Balanced (Savings + Quality Tier)</option>
-        </select>
+        <select id="strategySelect" aria-label="Sort Alternatives By" onchange="performSearch()"></select>
         <button type="submit" class="btn-primary">
-          <span>Analyze</span>
+          <span>Find Alternatives</span>
         </button>
       </form>
 
@@ -849,58 +1008,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <div id="searchResults"></div>
     </section>
 
-    <!-- Section 2: Complete Prescription Cart -->
+    <!-- Section 2: My Medicine Bill & Savings -->
     <section id="cartPanel" class="panel">
       <div class="print-only-header">
-        <h2>EquiMed-India · Verified Generic Prescription & Counter Dispensing Slip</h2>
-        <p style="font-size: 12px; color: #475569; margin-top: 4px;">Bioequivalent substitutes validated under CDSCO / Indian Pharmacopoeia standards. Show active salt names to your PMBJP Jan Aushadhi Kendra or licensed pharmacist.</p>
+        <h2>EquiMed-India · Medicine List for Your Chemist</h2>
+        <p style="font-size: 12px; color: #475569; margin-top: 4px;">Every alternative below has the exact same active ingredient and strength. Show the salt names to your PMBJP Jan Aushadhi Kendra or licensed pharmacist.</p>
       </div>
       <div class="view-header no-print">
         <div>
-          <h2 class="section-title">Prescription Cart & Dispensing Ledger</h2>
-          <p class="section-desc">Build a complete prescription bill comparing branded MRP against verified generic alternatives across strips, packs, syrups, and inhalers.</p>
+          <h2 class="section-title">My Medicine Bill & Savings</h2>
+          <p class="section-desc">Compare your doctor's prescribed brands with cheaper same-salt alternatives, and print a list to show your chemist.</p>
         </div>
         <div class="regimen-controls">
-          <select id="cartStrategySelect" aria-label="Cart Optimization Strategy" onchange="recalculateCart()">
-            <option value="jan_aushadhi">Jan Aushadhi (PMBJP) Priority</option>
-            <option value="max_savings">Maximum Price Savings</option>
-            <option value="balanced">Balanced Quality & Savings</option>
-          </select>
-          <select id="cartBillingMode" aria-label="Billing Calculation Basis" onchange="renderCartFromCache()">
-            <option value="pack">Billing: Retail Strips / Packs</option>
-            <option value="unit">Billing: Exact Unit Cost</option>
-          </select>
-          <button class="btn-secondary btn-sm" onclick="window.print()">Print Counter Slip</button>
-          <button class="btn-secondary btn-sm" onclick="clearCart()">Clear Cart</button>
+          <select id="cartStrategySelect" aria-label="Sort Cart Alternatives By" onchange="recalculateCart()"></select>
+          <select id="cartBillingMode" aria-label="How to Calculate Bill" onchange="renderCartFromCache()"></select>
+          <button class="btn-secondary btn-sm" onclick="window.print()">Print List for Chemist</button>
+          <button class="btn-secondary btn-sm" onclick="clearCart()">Clear All</button>
         </div>
       </div>
 
       <div id="cartResults"></div>
-    </section>
-
-    <!-- Section 3: Chronic Disease Baskets -->
-    <section id="chronicPanel" class="panel">
-      <div class="view-header">
-        <div>
-          <h2 class="section-title">Chronic Therapy Regimen Simulation</h2>
-          <p class="section-desc">Evaluate 30-day and annual out-of-pocket savings across 33 multi-morbidity patient scenarios, or load any regimen into your Prescription Cart.</p>
-        </div>
-        <div id="basketCountBadge" class="mono" style="color: var(--text-muted); font-size: 11px;">
-          33 CLINICAL SCENARIOS
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
-        <select id="basketSelect" style="flex: 1; min-width: 260px;" aria-label="Select Patient Profile" onchange="runBasketSimulation()"></select>
-        <button class="btn-primary" onclick="runBasketSimulation()">
-          <span>Simulate</span>
-        </button>
-        <button class="btn-secondary" onclick="loadBasketIntoCart()">
-          <span>Load Regimen into Cart</span>
-        </button>
-      </div>
-
-      <div id="basketResults"></div>
     </section>
 
   </main>
@@ -913,10 +1040,74 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </footer>
 
   <script>
-    const PACK_ONLY_FORMS = new Set(['SYRUP', 'INHALER', 'INJECTION', 'DROPS', 'OINTMENT']);
+    let PACK_ONLY_FORMS = new Set();
+    let uiConfig = {
+      presets: [],
+      default_query: '',
+      strategies: [
+        { id: 'max_savings', label: 'Lowest Price First' },
+        { id: 'jan_aushadhi', label: 'Govt. Jan Aushadhi Stores First' },
+        { id: 'balanced', label: 'Best Balance (Price + Quality)' },
+      ],
+      pack_only_forms: ['SYRUP', 'INHALER', 'INJECTION', 'DROPS', 'OINTMENT'],
+      regulatory_tiers: {},
+      dosage_forms: {},
+      release_types: {},
+      regimen_options: {
+        frequencies: [
+          { value: 1, label: 'Once a day (1-0-0)', short: '1-0-0 (OD)', cart_short: '1/day' },
+          { value: 2, label: 'Twice a day (1-0-1)', short: '1-0-1 (BD)', cart_short: '2/day' },
+          { value: 3, label: '3 times a day (1-1-1)', short: '1-1-1 (TDS)', cart_short: '3/day' },
+          { value: 4, label: '4 times a day (1-1-1-1)', short: '1-1-1-1 (QID)', cart_short: '4/day' },
+        ],
+        durations: [
+          { value: 5, label: '5 days' },
+          { value: 7, label: '7 days (1 week)' },
+          { value: 10, label: '10 days' },
+          { value: 15, label: '15 days' },
+          { value: 30, label: '30 days (1 month)' },
+          { value: 90, label: '90 days (3 months)' },
+        ],
+        default_duration: 30,
+        duration_min: 1,
+        duration_max: 365,
+        pack_min: 1,
+        pack_max: 24,
+        pack_default: 1,
+      },
+      cart_config: {
+        default_strategy: 'jan_aushadhi',
+        default_billing_mode: 'pack',
+        keep_original_sentinel: 'KEEP_ORIGINAL',
+        billing_modes: [
+          { id: 'pack', label: 'Full Strips / Bottles You Buy', short_label: 'Full Strips / Bottles' },
+          { id: 'unit', label: 'Exact Tablet / Dose Cost', short_label: 'Exact Dose Cost' },
+        ],
+      },
+      search_config: {
+        min_query_chars: 2,
+        autocomplete_limit: 15,
+        debounce_ms: 180,
+        currency_symbol: '₹',
+      },
+    };
+    PACK_ONLY_FORMS = new Set(uiConfig.pack_only_forms);
     let prescriptionCart = [];
     let lastOptimizedCart = null;
     let lastLookupData = null;
+
+    function escapeHtml(val) {
+      return String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function titleCaseLabel(str) {
+      return String(str || 'unit').replace(/\\b\\w/g, c => c.toUpperCase());
+    }
 
     function showToast(msg) {
       const el = document.getElementById('toastNotice');
@@ -950,19 +1141,106 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function formatTierBadge(tier) {
-      if (tier === 'PMBJP_JAN_AUSHADHI') return '<span class="badge badge-pmbjp">PMBJP Jan Aushadhi</span>';
-      if (tier === 'WHO_GMP_GENERIC') return '<span class="badge badge-who">WHO-GMP Generic</span>';
-      if (tier === 'CDSCO_APPROVED_GENERIC') return '<span class="badge badge-cdsco">CDSCO Approved Generic</span>';
-      if (tier === 'BRANDED_GENERIC') return '<span class="badge badge-branded">Branded Generic</span>';
-      return '<span class="badge badge-branded">Prescribed Brand</span>';
+      const meta = uiConfig.regulatory_tiers && uiConfig.regulatory_tiers[tier];
+      if (meta) {
+        return `<span class="badge ${escapeHtml(meta.badge_class)}">${escapeHtml(meta.label)}</span>`;
+      }
+      if (tier === 'PMBJP_JAN_AUSHADHI') return '<span class="badge badge-pmbjp">Govt. Jan Aushadhi</span>';
+      if (tier === 'WHO_GMP_GENERIC') return '<span class="badge badge-who">WHO-GMP Certified</span>';
+      if (tier === 'CDSCO_APPROVED_GENERIC') return '<span class="badge badge-cdsco">CDSCO Approved</span>';
+      if (tier === 'BRANDED_GENERIC') return '<span class="badge badge-branded">Retail Generic Brand</span>';
+      return '<span class="badge badge-branded">Original Brand</span>';
     }
 
     function freqLabelFromUnits(units) {
-      if (units === 1) return '1-0-0 (OD)';
-      if (units === 2) return '1-0-1 (BD)';
-      if (units === 3) return '1-1-1 (TDS)';
-      if (units === 4) return '1-1-1-1 (QID)';
+      const freqs = (uiConfig.regimen_options && uiConfig.regimen_options.frequencies) || [];
+      const found = freqs.find(f => Number(f.value) === Number(units));
+      if (found) return found.short || found.label;
       return `${units}/day`;
+    }
+
+    async function loadUiConfig() {
+      try {
+        const res = await fetch('/api/ui-config');
+        const cfg = await res.json();
+        if (cfg && typeof cfg === 'object') {
+          uiConfig = { ...uiConfig, ...cfg };
+          if (Array.isArray(uiConfig.pack_only_forms)) {
+            PACK_ONLY_FORMS = new Set(uiConfig.pack_only_forms);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load /api/ui-config', e);
+      }
+
+      const presetsRow = document.getElementById('presetsRow');
+      if (presetsRow && Array.isArray(uiConfig.presets)) {
+        presetsRow.innerHTML = '<span class="presets-label">Quick Examples:</span>';
+        uiConfig.presets.forEach(p => {
+          const chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.textContent = p.label;
+          chip.onclick = () => quickSearch(p.brand_name);
+          presetsRow.appendChild(chip);
+        });
+      }
+
+      const stratSel = document.getElementById('strategySelect');
+      if (stratSel && Array.isArray(uiConfig.strategies)) {
+        const prev = stratSel.value;
+        stratSel.innerHTML = '';
+        uiConfig.strategies.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.label;
+          stratSel.appendChild(opt);
+        });
+        if (prev && uiConfig.strategies.some(s => s.id === prev)) {
+          stratSel.value = prev;
+        }
+      }
+
+      const bInput = document.getElementById('brandInput');
+      if (bInput && !bInput.value.trim() && uiConfig.default_query) {
+        bInput.value = uiConfig.default_query;
+      }
+
+      const cartStratSel = document.getElementById('cartStrategySelect');
+      const cartCfg = uiConfig.cart_config || {};
+      if (cartStratSel && Array.isArray(uiConfig.strategies)) {
+        const prev = cartStratSel.value;
+        cartStratSel.innerHTML = '';
+        uiConfig.strategies.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.id;
+          opt.textContent = s.label;
+          cartStratSel.appendChild(opt);
+        });
+        const defStrat = cartCfg.default_strategy || 'jan_aushadhi';
+        if (prev && uiConfig.strategies.some(s => s.id === prev)) {
+          cartStratSel.value = prev;
+        } else if (uiConfig.strategies.some(s => s.id === defStrat)) {
+          cartStratSel.value = defStrat;
+        }
+      }
+
+      const billSel = document.getElementById('cartBillingMode');
+      if (billSel && Array.isArray(cartCfg.billing_modes)) {
+        const prevMode = billSel.value;
+        billSel.innerHTML = '';
+        cartCfg.billing_modes.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = m.label;
+          billSel.appendChild(opt);
+        });
+        const defMode = cartCfg.default_billing_mode || 'pack';
+        if (prevMode && cartCfg.billing_modes.some(m => m.id === prevMode)) {
+          billSel.value = prevMode;
+        } else if (cartCfg.billing_modes.some(m => m.id === defMode)) {
+          billSel.value = defMode;
+        }
+      }
     }
 
     async function quickSearch(name) {
@@ -972,57 +1250,68 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     async function performSearch() {
       const brand = document.getElementById('brandInput').value.trim();
-      const strategy = document.getElementById('strategySelect').value;
+      const strategy = document.getElementById('strategySelect').value || 'max_savings';
       const resDiv = document.getElementById('searchResults');
       if (!brand) return;
 
-      resDiv.innerHTML = '<p style="color: var(--text-muted); margin-top: 16px;">Executing clinical validation rules and scanning database index...</p>';
+      const cur = (uiConfig.search_config && uiConfig.search_config.currency_symbol) || '₹';
+      resDiv.innerHTML = '<p style="color: var(--text-muted); margin-top: 16px;">Checking active ingredients, strength, and safety rules...</p>';
 
       try {
-        const res = await fetch(`/api/substitutes?brand=${encodeURIComponent(brand)}&strategy=${strategy}`);
+        const res = await fetch(`/api/substitutes?brand=${encodeURIComponent(brand)}&strategy=${encodeURIComponent(strategy)}`);
         const data = await res.json();
         lastLookupData = data;
 
         if (!data.original_id) {
-          resDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;">No medicine matching <b>${brand}</b> was found in the catalog. Try a brand name (e.g., Telma 40) or chemical salt (e.g., Paracetamol, Budesonide).</div>`;
+          resDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;"><div>Could not find <b>${escapeHtml(brand)}</b> in our retail medicine database. Please check the spelling, or search by the chemical ingredient name printed on the strip.</div></div>`;
           return;
         }
 
-        const isPackOnly = PACK_ONLY_FORMS.has(data.original_form);
-        const ntiTag = data.is_nti ? '<span class="badge badge-nti" style="margin-left: 8px;">Narrow Therapeutic Index (NTI)</span>' : '';
+        const isPackOnly = typeof data.is_pack_only === 'boolean'
+          ? data.is_pack_only
+          : PACK_ONLY_FORMS.has(data.original_form);
+        const unitLabel = data.unit_label || (isPackOnly ? 'pack' : 'tablet');
+        const unitTitle = titleCaseLabel(unitLabel);
+        const formLabel = data.original_form_label || data.original_form;
+        const releaseLabel = data.original_release_label || data.original_release;
+        const packDesc = data.original_pack_label || (isPackOnly ? `1 ${unitLabel}` : `${data.original_pack_size} units`);
+
+        const ntiTag = data.is_nti
+          ? '<span class="badge badge-nti" style="margin-left: 8px;">Sensitive Dose — Ask Doctor Before Switching</span>'
+          : '';
+        const discontinuedTag = data.is_discontinued
+          ? '<span class="badge badge-discontinued" style="margin-left: 8px;">Discontinued Brand — Active Alternatives Shown Below</span>'
+          : '';
         const packLabel = isPackOnly
-          ? `Pack MRP: ₹${data.original_mrp.toFixed(2)} (1 ${data.original_form.toLowerCase()})`
-          : `Strip MRP: ₹${data.original_mrp.toFixed(2)} (${data.original_pack_size} units) · ₹${data.original_price_unit.toFixed(2)}/unit`;
+          ? `Full Pack MRP: ${cur}${data.original_mrp.toFixed(2)} (${escapeHtml(packDesc)})`
+          : `Strip MRP: ${cur}${data.original_mrp.toFixed(2)} (${escapeHtml(packDesc)}) · ${cur}${data.original_price_unit.toFixed(2)}/${escapeHtml(unitLabel)}`;
+
+        const regOpts = uiConfig.regimen_options || {};
+        const pMin = regOpts.pack_min || 1;
+        const pMax = regOpts.pack_max || 24;
+        const pDef = regOpts.pack_default || 1;
+        const freqs = regOpts.frequencies || [];
+        const durs = regOpts.durations || [];
+        const defDur = regOpts.default_duration || 30;
 
         const addControls = isPackOnly
           ? `
             <div class="regimen-controls">
-              <label for="lookupPacksQty">Quantity (Packs):</label>
-              <select id="lookupPacksQty">
-                <option value="1">1 pack / bottle / inhaler</option>
-                <option value="2">2 packs</option>
-                <option value="3">3 packs</option>
-              </select>
+              <label for="lookupPacksQty">How many packs?</label>
+              <input type="number" id="lookupPacksQty" class="inline-number" min="${pMin}" max="${pMax}" value="${pDef}">
+              <span style="font-size: 12px; color: var(--text-muted);">${escapeHtml(unitLabel)}(s)</span>
               <button type="button" class="btn-primary btn-sm" onclick="addCurrentLookupToCart()">Add to Cart</button>
             </div>
           `
           : `
             <div class="regimen-controls">
-              <label for="lookupFreq">Dosage:</label>
+              <label for="lookupFreq">Daily Dose:</label>
               <select id="lookupFreq">
-                <option value="1" selected>1-0-0 (Once Daily)</option>
-                <option value="2">1-0-1 (Twice Daily)</option>
-                <option value="3">1-1-1 (Thrice Daily)</option>
-                <option value="4">Four Times Daily</option>
+                ${freqs.map(f => `<option value="${f.value}" ${Number(f.value) === 1 ? 'selected' : ''}>${escapeHtml(f.label)}</option>`).join('')}
               </select>
-              <label for="lookupDays">Duration:</label>
+              <label for="lookupDays">For How Long:</label>
               <select id="lookupDays">
-                <option value="5">5 days</option>
-                <option value="7">7 days</option>
-                <option value="10">10 days</option>
-                <option value="15">15 days</option>
-                <option value="30" selected>30 days (Chronic)</option>
-                <option value="90">90 days (Quarterly)</option>
+                ${durs.map(d => `<option value="${d.value}" ${Number(d.value) === Number(defDur) ? 'selected' : ''}>${escapeHtml(d.label)}</option>`).join('')}
               </select>
               <button type="button" class="btn-primary btn-sm" onclick="addCurrentLookupToCart()">Add to Cart</button>
             </div>
@@ -1032,40 +1321,46 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <div class="med-profile-card" style="display: block;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
               <div class="med-meta">
-                <h3>${data.original_brand}${ntiTag}</h3>
-                <div class="med-salts">Active API: ${data.original_salts}</div>
+                <h3>${escapeHtml(data.original_brand)}${ntiTag}${discontinuedTag}</h3>
+                <div class="med-salts">Inside This Medicine (Salt): ${escapeHtml(data.original_salts)}</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                  ${data.original_manufacturer} · <span class="mono">${data.original_form} · ${data.original_release}</span> · <span class="mono">${packLabel}</span>
+                  ${escapeHtml(data.original_manufacturer)} · <span class="mono">${escapeHtml(formLabel)} · ${escapeHtml(releaseLabel)}</span> · <span class="mono">${packLabel}</span>
                 </div>
               </div>
               <div class="med-price-badge">
-                <div class="price-sub">Originator Unit Price</div>
-                <div class="price-num">₹${data.original_price_unit.toFixed(2)}</div>
+                <div class="price-sub">Your Medicine (Per ${escapeHtml(unitTitle)})</div>
+                <div class="price-num">${cur}${data.original_price_unit.toFixed(2)}</div>
               </div>
             </div>
             <div class="add-cart-bar">
-              <div style="font-size: 12px; color: var(--text-muted);">Configure prescribed dosage & add directly to your patient cart:</div>
+              <div style="font-size: 12px; color: var(--text-muted);">How many do you need? Add to your Prescription Bill below:</div>
               ${addControls}
             </div>
           </div>
         `;
 
         if (!data.matches || data.matches.length === 0) {
-          html += `<div class="alert-banner" style="margin-top: 16px;">No cheaper bioequivalent generic substitute is available for <b>${data.original_brand}</b> (it may already be the lowest-cost formulation in its class). You can still add it to your cart above.</div>`;
+          html += `<div class="alert-banner" style="margin-top: 16px;"><div><b>No cheaper exact-match alternative found for ${escapeHtml(data.original_brand)}</b> — it may already be the lowest-priced option available. You can still add it to your cart above.</div></div>`;
           resDiv.innerHTML = html;
           return;
         }
 
         html += `
-          <div class="table-container">
+          <div class="results-explainer">
+            <div>
+              <div class="results-explainer-title">Verified Cheaper Alternatives (${data.matches.length} found)</div>
+              <div class="results-explainer-sub">All options below have the <strong>exact same active ingredient and strength</strong> as <strong>${escapeHtml(data.original_brand)}</strong>, checked automatically by safety rules.</div>
+            </div>
+          </div>
+          <div class="table-container" style="margin-top: 12px;">
             <table>
               <thead>
                 <tr>
-                  <th>Generic Formulation</th>
-                  <th>Manufacturer & Quality Certification</th>
-                  <th class="tnum" style="text-align: right;">Pack / Unit Price</th>
-                  <th class="tnum" style="text-align: right;">Net Patient Savings</th>
-                  <th style="text-align: right;">Action</th>
+                  <th>Cheaper Alternative Medicine</th>
+                  <th>Company & Quality Badge</th>
+                  <th class="tnum" style="text-align: right;">Price per ${escapeHtml(unitTitle)}</th>
+                  <th class="tnum" style="text-align: right;">You Save (per ${escapeHtml(unitTitle)})</th>
+                  <th style="text-align: right;">Select</th>
                 </tr>
               </thead>
               <tbody>
@@ -1073,22 +1368,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         data.matches.forEach(m => {
           const tierBadge = formatTierBadge(m.regulatory_tier);
+          const subPackLabel = m.substitute_pack_label || `Pack of ${m.substitute_pack_size}`;
           html += `
             <tr>
               <td>
-                <div style="font-weight: 600; color: var(--text-main);">${m.substitute_brand}</div>
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Pack of ${m.substitute_pack_size} · MRP ₹${m.substitute_mrp.toFixed(2)}</div>
+                <div style="font-weight: 600; color: var(--text-main);">${escapeHtml(m.substitute_brand)}</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(subPackLabel)} · Full Pack MRP ${cur}${m.substitute_mrp.toFixed(2)}</div>
               </td>
               <td>
                 ${tierBadge}
-                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${m.substitute_manufacturer}</div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(m.substitute_manufacturer)}</div>
               </td>
-              <td class="tnum" style="text-align: right; font-weight: 600;">₹${m.substitute_price_unit.toFixed(2)}</td>
+              <td class="tnum" style="text-align: right; font-weight: 600;">${cur}${m.substitute_price_unit.toFixed(2)}</td>
               <td class="tnum" style="text-align: right;">
-                <span class="badge badge-savings">-${m.percentage_savings.toFixed(1)}% (₹${m.savings_per_unit.toFixed(2)})</span>
+                <span class="badge badge-savings">-${m.percentage_savings.toFixed(1)}% · Save ${cur}${m.savings_per_unit.toFixed(2)} each</span>
               </td>
               <td style="text-align: right;">
-                <button type="button" class="btn-secondary btn-sm" onclick="addCurrentLookupToCart('${m.substitute_id}')">+ Use in Cart</button>
+                <button type="button" class="btn-secondary btn-sm" onclick="addCurrentLookupToCart('${escapeHtml(m.substitute_id)}')">+ Pick This Option</button>
               </td>
             </tr>
           `;
@@ -1098,7 +1394,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <td colspan="5" style="padding-top: 0; background-color: var(--surface);">
                   <div class="alert-banner">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <div>${m.warnings.join(' | ')}</div>
+                    <div>${m.warnings.map(escapeHtml).join(' | ')}</div>
                   </div>
                 </td>
               </tr>
@@ -1109,27 +1405,33 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         html += '</tbody></table></div>';
         resDiv.innerHTML = html;
       } catch (e) {
-        resDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;">Error processing formulary query: ${e.message}</div>`;
+        resDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;">Error processing formulary query: ${escapeHtml(e.message)}</div>`;
       }
     }
 
     function addCurrentLookupToCart(preferredSubId = '') {
       if (!lastLookupData || !lastLookupData.original_id) return;
-      const isPackOnly = PACK_ONLY_FORMS.has(lastLookupData.original_form);
+      const isPackOnly = typeof lastLookupData.is_pack_only === 'boolean'
+        ? lastLookupData.is_pack_only
+        : PACK_ONLY_FORMS.has(lastLookupData.original_form);
+      const regOpts = uiConfig.regimen_options || {};
+      const pMin = regOpts.pack_min || 1;
+      const pMax = regOpts.pack_max || 24;
       let unitsPerDay = 1;
-      let durationDays = 30;
+      let durationDays = regOpts.default_duration || 30;
       let freqLabel = '1 pack';
 
       if (isPackOnly) {
-        const qtySel = document.getElementById('lookupPacksQty');
-        durationDays = qtySel ? parseInt(qtySel.value, 10) || 1 : 1;
+        const qtyEl = document.getElementById('lookupPacksQty');
+        const parsedQty = qtyEl ? parseInt(qtyEl.value, 10) || 1 : 1;
+        durationDays = Math.min(pMax, Math.max(pMin, parsedQty));
         unitsPerDay = 1;
         freqLabel = `${durationDays} pack${durationDays > 1 ? 's' : ''}`;
       } else {
         const freqSel = document.getElementById('lookupFreq');
         const daysSel = document.getElementById('lookupDays');
         unitsPerDay = freqSel ? parseInt(freqSel.value, 10) || 1 : 1;
-        durationDays = daysSel ? parseInt(daysSel.value, 10) || 30 : 30;
+        durationDays = daysSel ? parseInt(daysSel.value, 10) || (regOpts.default_duration || 30) : (regOpts.default_duration || 30);
         freqLabel = freqLabelFromUnits(unitsPerDay);
       }
 
@@ -1172,11 +1474,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     function updateCartItemField(medId, field, value) {
       const item = prescriptionCart.find(it => it.medicine_id === medId);
       if (!item) return;
-      if (field === 'duration_days' || field === 'units_per_day') {
-        item[field] = Math.max(1, parseInt(value, 10) || 1);
-        if (field === 'units_per_day') {
-          item.frequency_label = freqLabelFromUnits(item.units_per_day);
-        }
+      const regOpts = uiConfig.regimen_options || {};
+      if (field === 'duration_days') {
+        const parsed = parseInt(value, 10) || 1;
+        const cachedItem = lastOptimizedCart && lastOptimizedCart.items
+          ? lastOptimizedCart.items.find(it => it.medicine_id === medId)
+          : null;
+        const isPackOnly = cachedItem ? PACK_ONLY_FORMS.has(cachedItem.dosage_form) : false;
+        const minVal = isPackOnly ? (regOpts.pack_min || 1) : (regOpts.duration_min || 1);
+        const maxVal = isPackOnly ? (regOpts.pack_max || 24) : (regOpts.duration_max || 365);
+        item.duration_days = Math.min(maxVal, Math.max(minVal, parsed));
+      } else if (field === 'units_per_day') {
+        item.units_per_day = Math.max(1, parseInt(value, 10) || 1);
+        item.frequency_label = freqLabelFromUnits(item.units_per_day);
       } else {
         item[field] = value;
       }
@@ -1191,7 +1501,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         renderCartFromCache();
         return;
       }
-      const strategy = document.getElementById('cartStrategySelect').value;
+      const cartStratEl = document.getElementById('cartStrategySelect');
+      const defStrat = (uiConfig.cart_config && uiConfig.cart_config.default_strategy) || 'jan_aushadhi';
+      const strategy = (cartStratEl && cartStratEl.value) || defStrat;
       try {
         const res = await fetch('/api/optimize-cart', {
           method: 'POST',
@@ -1202,7 +1514,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         lastOptimizedCart = data;
         renderCartFromCache();
       } catch (e) {
-        cDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;">Error optimizing prescription cart: ${e.message}</div>`;
+        cDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;">Error optimizing medicine list: ${escapeHtml(e.message)}</div>`;
       }
     }
 
@@ -1211,38 +1523,48 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (!lastOptimizedCart || !lastOptimizedCart.items || lastOptimizedCart.items.length === 0) {
         cDiv.innerHTML = `
           <div class="cart-empty">
-            <strong>Your prescription cart is empty.</strong> Search any medicine above to configure dosage & add it, or load one of the 33 chronic therapy scenarios below.
+            <strong>Your medicine list is empty.</strong> Search any medicine above, choose how many days you need it, and click <strong>Add to Cart</strong> (or <strong>+ Pick This Option</strong>).
           </div>
         `;
         return;
       }
 
-      const mode = document.getElementById('cartBillingMode').value;
+      const cartCfg = uiConfig.cart_config || {};
+      const regOpts = uiConfig.regimen_options || {};
+      const cur = (uiConfig.search_config && uiConfig.search_config.currency_symbol) || '₹';
+      const keepSentinel = cartCfg.keep_original_sentinel || 'KEEP_ORIGINAL';
+      const billEl = document.getElementById('cartBillingMode');
+      const mode = (billEl && billEl.value) || cartCfg.default_billing_mode || 'pack';
+      const billingModes = cartCfg.billing_modes || [];
+      const activeModeObj = billingModes.find(m => m.id === mode);
+      const modeTitle = activeModeObj
+        ? (activeModeObj.short_label || activeModeObj.label)
+        : (mode === 'pack' ? 'Full Strips / Bottles' : 'Exact Dose Cost');
+
       const sum = lastOptimizedCart.summary;
       const origTotal = mode === 'pack' ? sum.original_pack_total : sum.original_unit_total;
       const optTotal = mode === 'pack' ? sum.optimized_pack_total : sum.optimized_unit_total;
       const savTotal = mode === 'pack' ? sum.pack_savings_total : sum.unit_savings_total;
       const savPct = mode === 'pack' ? sum.pack_savings_pct : sum.unit_savings_pct;
       const annualSav = mode === 'pack' ? sum.annual_projected_pack_savings : sum.annual_projected_unit_savings;
-      const modeTitle = mode === 'pack' ? 'Retail Strip / Pack MRP' : 'Exact Clinical Unit Cost';
 
       let html = `
         <div class="metrics-row" style="margin-top: 18px;">
           <div class="stat-box">
-            <div class="stat-label">Branded Bill (${modeTitle})</div>
-            <div class="stat-figure red tnum">₹${origTotal.toFixed(2)}</div>
+            <div class="stat-label">Prescribed Brands Total (${escapeHtml(modeTitle)})</div>
+            <div class="stat-figure red tnum">${cur}${origTotal.toFixed(2)}</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">EquiMed Generic Bill</div>
-            <div class="stat-figure blue tnum">₹${optTotal.toFixed(2)}</div>
+            <div class="stat-label">Cheaper Alternatives Total</div>
+            <div class="stat-figure blue tnum">${cur}${optTotal.toFixed(2)}</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Prescription Savings</div>
-            <div class="stat-figure green tnum">₹${savTotal.toFixed(2)} <span style="font-size: 14px; font-weight: 500;">(${savPct.toFixed(1)}%)</span></div>
+            <div class="stat-label">Total Money Saved</div>
+            <div class="stat-figure green tnum">${cur}${savTotal.toFixed(2)} <span style="font-size: 14px; font-weight: 500;">(${savPct.toFixed(1)}%)</span></div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Annualized Projection (12x)</div>
-            <div class="stat-figure green tnum">₹${annualSav.toFixed(2)}</div>
+            <div class="stat-label">Yearly Savings (If Taken Monthly)</div>
+            <div class="stat-figure green tnum">${cur}${annualSav.toFixed(2)}</div>
           </div>
         </div>
 
@@ -1250,17 +1572,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <table>
             <thead>
               <tr>
-                <th>Prescribed Drug & Generic Salt</th>
-                <th>Regimen / Qty</th>
-                <th>Counter Substitution Choice</th>
-                <th class="tnum" style="text-align: right;">Branded</th>
-                <th class="tnum" style="text-align: right;">Generic Bill</th>
-                <th class="tnum" style="text-align: right;">Saved</th>
+                <th>Prescribed Medicine & Salt</th>
+                <th>How Many You Need</th>
+                <th>Chosen Alternative</th>
+                <th class="tnum" style="text-align: right;">Original Cost</th>
+                <th class="tnum" style="text-align: right;">New Cost</th>
+                <th class="tnum" style="text-align: right;">You Save</th>
                 <th class="no-print" style="text-align: center;">Remove</th>
               </tr>
             </thead>
             <tbody>
       `;
+
+      const pMin = regOpts.pack_min || 1;
+      const pMax = regOpts.pack_max || 24;
+      const dMin = regOpts.duration_min || 1;
+      const dMax = regOpts.duration_max || 365;
+      const freqs = regOpts.frequencies || [];
 
       lastOptimizedCart.items.forEach(it => {
         const isPackOnly = PACK_ONLY_FORMS.has(it.dosage_form);
@@ -1268,43 +1596,80 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const optCost = mode === 'pack' ? it.optimized_pack_cost : it.optimized_unit_cost;
         const itemSav = mode === 'pack' ? it.pack_savings : it.unit_savings;
         const itemPct = mode === 'pack' ? it.pack_savings_pct : it.unit_savings_pct;
-        const ntiFlag = it.is_nti ? ' <span class="badge badge-nti">NTI</span>' : '';
+        const ntiFlag = it.is_nti ? ' <span class="badge badge-nti">Sensitive Dose</span>' : '';
 
-        let optionsHtml = `<option value="KEEP_ORIGINAL" ${it.selected_substitute_id === 'KEEP_ORIGINAL' ? 'selected' : ''}>Keep Brand: ${it.original_brand} (₹${it.original_mrp.toFixed(2)}/${it.original_pack_size}u)</option>`;
-        it.alternatives.forEach(alt => {
+        const fMeta = uiConfig.dosage_forms && uiConfig.dosage_forms[it.dosage_form];
+        const formLabel = fMeta ? fMeta.label : it.dosage_form;
+        const unitWord = fMeta ? fMeta.unit_label : (isPackOnly ? 'pack' : 'tablet');
+        const unitPlural = unitWord.endsWith('s') ? unitWord : `${unitWord}s`;
+        const relLabel = (uiConfig.release_types && uiConfig.release_types[it.release_type]) || it.release_type;
+        const safeMedId = escapeHtml(it.medicine_id);
+
+        const origPackNote = isPackOnly
+          ? `${cur}${it.original_mrp.toFixed(2)} / ${unitWord}`
+          : `${cur}${it.original_mrp.toFixed(2)} / ${it.original_pack_size} ${unitPlural}`;
+
+        let optionsHtml = `<option value="${escapeHtml(keepSentinel)}" ${it.selected_substitute_id === keepSentinel ? 'selected' : ''}>Keep Prescribed Brand: ${escapeHtml(it.original_brand)} (${escapeHtml(origPackNote)})</option>`;
+        (it.alternatives || []).forEach(alt => {
           const sel = it.selected_substitute_id === alt.id ? 'selected' : '';
-          optionsHtml += `<option value="${alt.id}" ${sel}>${alt.brand_name} (₹${alt.mrp.toFixed(2)}/${alt.pack_size}u · -${alt.percentage_savings.toFixed(0)}%)</option>`;
+          const altPackNote = isPackOnly
+            ? `${cur}${alt.mrp.toFixed(2)} / ${unitWord}`
+            : `${cur}${alt.mrp.toFixed(2)} / ${alt.pack_size} ${unitPlural}`;
+          optionsHtml += `<option value="${escapeHtml(alt.id)}" ${sel}>${escapeHtml(alt.brand_name)} (${escapeHtml(altPackNote)} · -${alt.percentage_savings.toFixed(0)}%)</option>`;
         });
 
+        const freqOptionsHtml = freqs.map(f => {
+          const sel = Number(it.units_per_day) === Number(f.value) ? 'selected' : '';
+          const lbl = f.cart_short || f.short || `${f.value}/day`;
+          return `<option value="${f.value}" ${sel}>${escapeHtml(lbl)}</option>`;
+        }).join('');
+
+        const stripWord = it.optimized_packs_needed === 1 ? 'strip' : 'strips';
+        const origCountLabel = isPackOnly
+          ? `${it.original_packs_needed} ${unitWord}${it.original_packs_needed === 1 ? '' : 's'}`
+          : `${it.original_packs_needed} ${it.original_packs_needed === 1 ? 'strip' : 'strips'}`;
+        const optCountLabel = isPackOnly
+          ? `${it.optimized_packs_needed} ${unitWord}${it.optimized_packs_needed === 1 ? '' : 's'}`
+          : `${it.optimized_packs_needed} ${stripWord}`;
+
         const regimenEditor = isPackOnly
-          ? `<div class="regimen-controls"><input type="number" min="1" max="24" class="inline-number" value="${it.duration_days}" onchange="updateCartItemField('${it.medicine_id}', 'duration_days', this.value)"><span style="font-size: 11px; color: var(--text-muted);">pack(s)</span></div>`
-          : `<div class="regimen-controls"><select class="inline-select" style="width: 82px;" onchange="updateCartItemField('${it.medicine_id}', 'units_per_day', this.value)"><option value="1" ${it.units_per_day === 1 ? 'selected' : ''}>OD (1/d)</option><option value="2" ${it.units_per_day === 2 ? 'selected' : ''}>BD (2/d)</option><option value="3" ${it.units_per_day === 3 ? 'selected' : ''}>TDS (3/d)</option><option value="4" ${it.units_per_day === 4 ? 'selected' : ''}>QID (4/d)</option></select><input type="number" min="1" max="365" class="inline-number" value="${it.duration_days}" onchange="updateCartItemField('${it.medicine_id}', 'duration_days', this.value)"><span style="font-size: 11px; color: var(--text-muted);">days</span></div><div class="mono" style="color: var(--text-muted); margin-top: 3px;">${it.total_units} units (${it.optimized_packs_needed} × ${it.substitute_pack_size}u pack)</div>`;
+          ? `<div class="regimen-controls"><input type="number" min="${pMin}" max="${pMax}" class="inline-number" value="${it.duration_days}" onchange="updateCartItemField('${safeMedId}', 'duration_days', this.value)"><span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(unitWord)}(s)</span></div>`
+          : `<div class="regimen-controls"><select class="inline-select" style="width: 78px;" onchange="updateCartItemField('${safeMedId}', 'units_per_day', this.value)">${freqOptionsHtml}</select><input type="number" min="${dMin}" max="${dMax}" class="inline-number" value="${it.duration_days}" onchange="updateCartItemField('${safeMedId}', 'duration_days', this.value)"><span style="font-size: 11px; color: var(--text-muted);">days</span></div><div class="mono" style="color: var(--text-muted); margin-top: 3px;">${it.total_units} ${escapeHtml(unitPlural)} total (buy ${it.optimized_packs_needed} ${stripWord} of ${it.substitute_pack_size})</div>`;
+
+        let savingsBadgeHtml;
+        if (it.selected_substitute_id === keepSentinel) {
+          savingsBadgeHtml = `<span class="badge badge-branded">Kept original</span>`;
+        } else if (itemSav <= 0) {
+          savingsBadgeHtml = `<span class="badge badge-branded">Same price</span>`;
+        } else {
+          savingsBadgeHtml = `<span class="badge badge-savings">-${cur}${itemSav.toFixed(2)} (${itemPct.toFixed(1)}%)</span>`;
+        }
 
         html += `
           <tr>
             <td>
-              <div style="font-weight: 600; color: var(--text-main);">${it.original_brand}${ntiFlag}</div>
-              <div class="mono" style="color: var(--accent); margin-top: 2px;">${it.salts}</div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${it.dosage_form} · ${it.release_type}</div>
+              <div style="font-weight: 600; color: var(--text-main);">${escapeHtml(it.original_brand)}${ntiFlag}</div>
+              <div class="mono" style="color: var(--accent); margin-top: 2px;">${escapeHtml(it.salts)}</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(formLabel)} · ${escapeHtml(relLabel)}</div>
             </td>
             <td>${regimenEditor}</td>
             <td>
-              <select class="inline-select no-print" onchange="updateCartItemField('${it.medicine_id}', 'selected_substitute_id', this.value)">${optionsHtml}</select>
-              <div style="margin-top: 4px;">${formatTierBadge(it.substitute_tier)} <span style="font-size: 11px; color: var(--text-muted);">${it.substitute_brand}</span></div>
+              <select class="inline-select no-print" onchange="updateCartItemField('${safeMedId}', 'selected_substitute_id', this.value)">${optionsHtml}</select>
+              <div style="margin-top: 4px;">${formatTierBadge(it.substitute_tier)} <span style="font-size: 11px; color: var(--text-muted);">${escapeHtml(it.substitute_brand)}</span></div>
             </td>
             <td class="tnum" style="text-align: right;">
-              <div>₹${origCost.toFixed(2)}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${it.original_packs_needed} pack(s)</div>
+              <div>${cur}${origCost.toFixed(2)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(origCountLabel)}</div>
             </td>
             <td class="tnum" style="text-align: right; font-weight: 600;">
-              <div>₹${optCost.toFixed(2)}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${it.optimized_packs_needed} pack(s)</div>
+              <div>${cur}${optCost.toFixed(2)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(optCountLabel)}</div>
             </td>
             <td class="tnum" style="text-align: right;">
-              <span class="badge badge-savings">-₹${itemSav.toFixed(2)} (${itemPct.toFixed(1)}%)</span>
+              ${savingsBadgeHtml}
             </td>
             <td class="no-print" style="text-align: center;">
-              <button type="button" class="icon-btn" title="Remove item" onclick="removeCartItem('${it.medicine_id}')">
+              <button type="button" class="icon-btn" title="Remove medicine" onclick="removeCartItem('${safeMedId}')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </td>
@@ -1320,7 +1685,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           html += `
             <div class="alert-banner">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-              <div>${alert}</div>
+              <div>${escapeHtml(alert)}</div>
             </div>
           `;
         });
@@ -1328,134 +1693,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }
 
       cDiv.innerHTML = html;
-    }
-
-    async function loadBasketIntoCart() {
-      const basketId = document.getElementById('basketSelect').value;
-      try {
-        const res = await fetch(`/api/optimize-basket?basket_id=${encodeURIComponent(basketId)}`);
-        const data = await res.json();
-        if (!data.items || data.items.length === 0) return;
-        data.items.forEach(it => {
-          upsertCartItem({
-            medicine_id: it.original_id,
-            brand_name: it.original_brand,
-            units_per_day: it.units_per_day || 1,
-            duration_days: it.duration_days || 30,
-            frequency_label: freqLabelFromUnits(it.units_per_day || 1),
-            selected_substitute_id: it.substitute_id || '',
-          });
-        });
-        showToast(`Loaded ${data.items.length} medicines from ${data.basket_id} into Cart`);
-        scrollToCart();
-      } catch (e) {
-        showToast('Failed to load regimen into cart');
-      }
-    }
-
-    async function runBasketSimulation() {
-      const basketId = document.getElementById('basketSelect').value;
-      const bDiv = document.getElementById('basketResults');
-      bDiv.innerHTML = '<p style="color: var(--text-muted); margin-top: 16px;">Calculating prescription economics across regimen...</p>';
-
-      try {
-        const res = await fetch(`/api/optimize-basket?basket_id=${basketId}`);
-        const data = await res.json();
-
-        let html = `
-          <div class="metrics-row" style="margin-top: 20px;">
-            <div class="stat-box">
-              <div class="stat-label">Branded Monthly Out-of-Pocket</div>
-              <div class="stat-figure red tnum">₹${data.original_total_cost.toFixed(2)}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">EquiMed Generic Spend</div>
-              <div class="stat-figure blue tnum">₹${data.optimized_total_cost.toFixed(2)}</div>
-            </div>
-            <div class="stat-label-wrap stat-box">
-              <div class="stat-label">Monthly Direct Savings</div>
-              <div class="stat-figure green tnum">₹${data.monthly_savings_amount.toFixed(2)} <span style="font-size: 14px; font-weight: 500;">(${data.monthly_savings_percentage.toFixed(1)}%)</span></div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Projected Annual Household Relief</div>
-              <div class="stat-figure green tnum">₹${data.annual_projected_savings.toFixed(2)}</div>
-            </div>
-          </div>
-
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Prescribed Therapy Item</th>
-                  <th>Bioequivalent Substitute</th>
-                  <th class="tnum" style="text-align: right;">Branded Spend</th>
-                  <th class="tnum" style="text-align: right;">Generic Spend</th>
-                  <th class="tnum" style="text-align: right;">Patient Relief</th>
-                </tr>
-              </thead>
-              <tbody>
-        `;
-
-        data.items.forEach(it => {
-          html += `
-            <tr>
-              <td>
-                <div style="font-weight: 600;">${it.original_brand}</div>
-                <div class="mono" style="color: var(--text-muted);">${it.units_needed} units / course</div>
-              </td>
-              <td>
-                <div style="font-weight: 600;">${it.substitute_brand}</div>
-                <div style="font-size: 11px; color: var(--text-muted);">${it.manufacturer}</div>
-              </td>
-              <td class="tnum" style="text-align: right;">₹${it.original_cost.toFixed(2)}</td>
-              <td class="tnum" style="text-align: right; font-weight: 600;">₹${it.optimized_cost.toFixed(2)}</td>
-              <td class="tnum" style="text-align: right;">
-                <span class="badge badge-savings">-₹${it.savings_amount.toFixed(2)} (${it.savings_percentage.toFixed(1)}%)</span>
-              </td>
-            </tr>
-          `;
-        });
-
-        html += '</tbody></table></div>';
-
-        if (data.safety_alerts && data.safety_alerts.length > 0) {
-          html += '<div style="margin-top: 14px;">';
-          data.safety_alerts.forEach(alert => {
-            html += `
-              <div class="alert-banner">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                <div>${alert}</div>
-              </div>
-            `;
-          });
-          html += '</div>';
-        }
-
-        bDiv.innerHTML = html;
-      } catch (e) {
-        bDiv.innerHTML = `<div class="alert-banner" style="margin-top: 16px;">Error simulating regimen: ${e.message}</div>`;
-      }
-    }
-
-    async function loadBasketsList() {
-      try {
-        const res = await fetch('/api/baskets');
-        const list = await res.json();
-        const sel = document.getElementById('basketSelect');
-        const badge = document.getElementById('basketCountBadge');
-        if (list && list.length > 0) {
-          sel.innerHTML = '';
-          list.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.basket_id;
-            opt.textContent = `[${b.basket_id}] ${b.patient_profile} (${b.items_count} medications)`;
-            sel.appendChild(opt);
-          });
-          if (badge) badge.textContent = `${list.length} CLINICAL SCENARIOS`;
-        }
-      } catch (e) {
-        console.error('Failed to load baskets list', e);
-      }
     }
 
     async function loadCatalogMeta() {
@@ -1501,29 +1738,45 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       applyTheme(savedTheme);
 
       loadCartState();
-      if (prescriptionCart.length > 0) {
-        recalculateCart();
-      } else {
-        renderCartFromCache();
-      }
 
       const bInput = document.getElementById('brandInput');
       const dList = document.getElementById('medSuggestions');
       if (bInput && dList) {
-        bInput.addEventListener('input', async function() {
+        let _searchDebounceTimer = null;
+        let _searchAbortController = null;
+        bInput.addEventListener('input', function() {
+          const sCfg = uiConfig.search_config || {};
+          const minChars = sCfg.min_query_chars || 2;
+          const autoLimit = sCfg.autocomplete_limit || 15;
+          const debounceMs = sCfg.debounce_ms || 180;
+          const cur = sCfg.currency_symbol || '₹';
+
           const q = this.value.trim();
-          if (q.length < 2) return;
-          try {
-            const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=15`);
-            const items = await res.json();
-            dList.innerHTML = '';
-            items.forEach(item => {
-              const opt = document.createElement('option');
-              opt.value = item.brand_name;
-              opt.label = `${item.dosage_form} · ${item.manufacturer} (₹${item.price_per_unit.toFixed(2)})`;
-              dList.appendChild(opt);
-            });
-          } catch(e) {}
+          if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+          if (q.length < minChars) {
+            if (_searchAbortController) _searchAbortController.abort();
+            return;
+          }
+          _searchDebounceTimer = setTimeout(async () => {
+            if (_searchAbortController) _searchAbortController.abort();
+            _searchAbortController = new AbortController();
+            try {
+              const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=${autoLimit}`, {
+                signal: _searchAbortController.signal
+              });
+              const items = await res.json();
+              dList.innerHTML = '';
+              items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.brand_name;
+                const discFlag = item.is_discontinued ? ' [Discontinued]' : '';
+                const fMeta = uiConfig.dosage_forms && uiConfig.dosage_forms[item.dosage_form];
+                const fLabel = fMeta ? fMeta.label : item.dosage_form;
+                opt.label = `${fLabel} · ${item.manufacturer} (${cur}${item.price_per_unit.toFixed(2)})${discFlag}`;
+                dList.appendChild(opt);
+              });
+            } catch(e) {}
+          }, debounceMs);
         });
 
         bInput.addEventListener('keydown', function(e) {
@@ -1535,10 +1788,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }
 
       loadCatalogMeta();
-      loadBasketsList().then(() => {
-        runBasketSimulation();
+      loadUiConfig().then(() => {
+        if (prescriptionCart.length > 0) {
+          recalculateCart();
+        } else {
+          renderCartFromCache();
+        }
+        performSearch();
       });
-      performSearch();
     };
   </script>
 </body>
@@ -1568,12 +1825,15 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
 
         if path in ("/", "/index.html"):
-            content = HTML_TEMPLATE.encode("utf-8")
+            content = HTML_TEMPLATE.replace("{{CATALOG_COUNT}}", f"{_repo.count():,}").encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(content)))
             self.end_headers()
             self.wfile.write(content)
+
+        elif path == "/api/ui-config":
+            self.send_json(_build_ui_config())
 
         elif path == "/api/search":
             q = query.get("q", [""])[0]
@@ -1611,12 +1871,26 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
                 for s in orig.salts
             )
 
+            orig_form_meta = _FORM_DISPLAY_META.get(
+                orig.dosage_form, {"label": orig.dosage_form.value, "unit_label": "unit"}
+            )
+            orig_is_pack_only = orig.dosage_form in SafetyEngine.PACK_ONLY_FORMS
+
             enriched_matches = [
                 {
                     **m.to_dict(),
                     "substitute_pack_size": m.substitute_medicine.pack_size,
+                    "substitute_pack_label": _format_pack_label(m.substitute_medicine),
                     "substitute_mrp": m.substitute_medicine.mrp,
                     "dosage_form": m.substitute_medicine.dosage_form.value,
+                    "substitute_form_label": _FORM_DISPLAY_META.get(
+                        m.substitute_medicine.dosage_form,
+                        {"label": m.substitute_medicine.dosage_form.value},
+                    )["label"],
+                    "substitute_tier_label": _TIER_DISPLAY_META.get(
+                        m.substitute_medicine.regulatory_tier,
+                        {"label": m.substitute_medicine.regulatory_tier.value},
+                    )["label"],
                 }
                 for m in matches
             ]
@@ -1627,11 +1901,20 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
                 "original_manufacturer": orig.manufacturer,
                 "original_salts": salts_str,
                 "original_form": orig.dosage_form.value,
+                "original_form_label": orig_form_meta["label"],
                 "original_release": orig.release_type.value,
+                "original_release_label": _RELEASE_DISPLAY_LABELS.get(
+                    orig.release_type, orig.release_type.value
+                ),
                 "original_pack_size": orig.pack_size,
+                "original_pack_label": _format_pack_label(orig),
                 "original_mrp": orig.mrp,
                 "original_price_unit": orig.price_per_unit,
+                "is_pack_only": orig_is_pack_only,
+                "unit_label": orig_form_meta["unit_label"],
                 "is_nti": orig.is_narrow_therapeutic_index,
+                "is_discontinued": orig.is_discontinued,
+                "original_source": orig.source,
                 "strategy": strategy.name,
                 "matches": enriched_matches,
             }
@@ -1652,6 +1935,8 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/optimize-basket":
             basket_id = query.get("basket_id", ["BASKET-01"])[0]
+            strategy_name = query.get("strategy", ["max_savings"])[0]
+            strategy = get_strategy(strategy_name)
             all_baskets = PrescriptionOptimizer.load_chronic_baskets(_baskets_path, _repo)
             target = next((b for b in all_baskets if b["basket_id"] == basket_id), None)
             if not target:
@@ -1662,8 +1947,11 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
                 basket_id=target["basket_id"],
                 patient_profile=target["patient_profile"],
                 items=target["items"],
+                strategy=strategy,
             )
-            self.send_json(res.to_dict())
+            payload = res.to_dict()
+            payload["strategy"] = strategy.name
+            self.send_json(payload)
 
         elif path == "/api/metrics":
             self.send_json({
@@ -1717,8 +2005,8 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
 
 
 def run_server(port: int = 8000) -> None:
-    server = HTTPServer(("0.0.0.0", port), EquiMedHTTPRequestHandler)
-    print(f"🚀 EquiMed HTTP Server running on http://localhost:{port}")
+    server = ThreadingHTTPServer(("0.0.0.0", port), EquiMedHTTPRequestHandler)
+    print(f"🚀 EquiMed HTTP Server running on http://localhost:{port} ({_repo.count():,} formulations)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

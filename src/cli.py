@@ -16,17 +16,14 @@ from typing import List
 from src.models import PrescriptionItem
 from src.observer import AuditLogObserver, SafetyAlertObserver, SavingsTrackerObserver
 from src.optimizer import PrescriptionOptimizer
-from src.repository import MedicineRepository
+from src.repository import RepositoryType, load_default_repository
 from src.safety_engine import SafetyEngine
 from src.search_engine import SearchEngine
 from src.strategy import get_strategy
 
 
-def get_default_repo() -> MedicineRepository:
-    repo = MedicineRepository()
-    catalog_path = Path(__file__).resolve().parent.parent / "data" / "medicine_catalog.json"
-    repo.load_from_json(catalog_path)
-    return repo
+def get_default_repo(curated_only: bool = False) -> RepositoryType:
+    return load_default_repository(curated_only=curated_only)
 
 
 def print_banner() -> None:
@@ -65,7 +62,8 @@ def cmd_substitutes(args, repo: MedicineRepository, engine: SearchEngine) -> Non
         return
 
     orig = matches[0].original_medicine
-    print(f"\n🏷️  Prescribed Brand: {orig.brand_name} ({orig.manufacturer})")
+    disc_note = " [DISCONTINUED — Active Substitutes Below]" if orig.is_discontinued else ""
+    print(f"\n🏷️  Prescribed Brand: {orig.brand_name} ({orig.manufacturer}){disc_note}")
     salts_str = ", ".join(f"{s.name} {s.strength_value}{s.strength_unit}" for s in orig.salts)
     print(f"   Active Salts: {salts_str}")
     print(f"   Original Price: ₹{orig.price_per_unit:.2f}/unit (MRP: ₹{orig.mrp:.2f} for pack of {orig.pack_size})")
@@ -98,8 +96,10 @@ def cmd_chronic_baskets(args, repo: MedicineRepository, engine: SearchEngine) ->
     baskets_path = Path(__file__).resolve().parent.parent / "data" / "chronic_baskets.json"
     baskets = PrescriptionOptimizer.load_chronic_baskets(baskets_path, repo)
     optimizer = PrescriptionOptimizer(engine)
+    strategy = get_strategy(getattr(args, "strategy", "max_savings"))
 
     print("\n📊 Chronic Therapy Basket Affordability Simulation")
+    print(f"   Prioritization Strategy: {strategy.name}")
     print("   Benchmarking Real-World Indian Monthly Disease Prescriptions:\n")
 
     total_monthly_orig = 0.0
@@ -110,6 +110,7 @@ def cmd_chronic_baskets(args, repo: MedicineRepository, engine: SearchEngine) ->
             basket_id=b["basket_id"],
             patient_profile=b["patient_profile"],
             items=b["items"],
+            strategy=strategy,
         )
         total_monthly_orig += res.original_total_cost
         total_monthly_generic += res.optimized_total_cost
@@ -141,6 +142,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="EquiMed: Deterministic Generic Drug Substitution & Affordability Optimizer"
     )
+    parser.add_argument(
+        "--curated-only",
+        action="store_true",
+        help="Force loading only the 1,021 curated gold records instead of SQLite catalog",
+    )
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
     # Search command
@@ -158,12 +164,18 @@ def main() -> None:
     )
 
     # Chronic baskets benchmark command
-    subparsers.add_parser("chronic-baskets", help="Run chronic prescription baskets benchmark")
+    p_baskets = subparsers.add_parser("chronic-baskets", help="Run chronic prescription baskets benchmark")
+    p_baskets.add_argument(
+        "--strategy",
+        choices=["max_savings", "jan_aushadhi", "balanced"],
+        default="max_savings",
+        help="Ranking strategy algorithm",
+    )
 
     # Parse arguments
     args = parser.parse_args()
 
-    repo = get_default_repo()
+    repo = get_default_repo(curated_only=args.curated_only)
     audit_observer = AuditLogObserver()
     savings_observer = SavingsTrackerObserver()
     safety_observer = SafetyAlertObserver()

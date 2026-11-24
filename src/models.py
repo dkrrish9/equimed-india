@@ -33,6 +33,7 @@ class ReleaseType(str, Enum):
     SUSTAINED_RELEASE = "SUSTAINED_RELEASE"  # SR
     EXTENDED_RELEASE = "EXTENDED_RELEASE"    # ER
     CONTROLLED_RELEASE = "CONTROLLED_RELEASE"  # CR
+    MODIFIED_RELEASE = "MODIFIED_RELEASE"      # MR
     ENTERIC_COATED = "ENTERIC_COATED"        # EC
 
     @classmethod
@@ -53,6 +54,9 @@ class RegulatoryTier(str, Enum):
     BRANDED_GENERIC = "BRANDED_GENERIC"            # Branded generic with moderate markup
 
 
+_SAFETY_ENGINE_CLS: Any = None
+
+
 @dataclass(frozen=True)
 class SaltComponent:
     """Active Pharmaceutical Ingredient (API) component with strength."""
@@ -62,9 +66,12 @@ class SaltComponent:
 
     def normalized_key(self) -> str:
         """Returns standard chemical identifier string: e.g. 'amoxicillin:500.0:mg'."""
-        from src.safety_engine import SafetyEngine
-        canonical_name = SafetyEngine.normalize_salt_name(self.name)
-        norm_val, norm_unit = SafetyEngine.normalize_strength(self.strength_value, self.strength_unit)
+        global _SAFETY_ENGINE_CLS
+        if _SAFETY_ENGINE_CLS is None:
+            from src.safety_engine import SafetyEngine
+            _SAFETY_ENGINE_CLS = SafetyEngine
+        canonical_name = _SAFETY_ENGINE_CLS.normalize_salt_name(self.name)
+        norm_val, norm_unit = _SAFETY_ENGINE_CLS.normalize_strength(self.strength_value, self.strength_unit)
         return f"{canonical_name}:{round(norm_val, 4)}:{norm_unit}"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -98,6 +105,9 @@ class Medicine:
     regulatory_tier: RegulatoryTier
     is_narrow_therapeutic_index: bool = False
     therapeutic_category: str = "General"
+    is_discontinued: bool = False
+    pack_size_label: str = ""
+    source: str = "curated"
 
     def salt_fingerprint(self) -> str:
         """Deterministic fingerprint independent of salt ordering in combination drugs.
@@ -131,6 +141,9 @@ class Medicine:
             "regulatory_tier": self.regulatory_tier.value,
             "is_narrow_therapeutic_index": self.is_narrow_therapeutic_index,
             "therapeutic_category": self.therapeutic_category,
+            "is_discontinued": self.is_discontinued,
+            "pack_size_label": self.pack_size_label,
+            "source": self.source,
         }
 
     @classmethod
@@ -157,6 +170,9 @@ class Medicine:
             regulatory_tier=reg_tier,
             is_narrow_therapeutic_index=bool(data.get("is_narrow_therapeutic_index", False)),
             therapeutic_category=str(data.get("therapeutic_category", "General")),
+            is_discontinued=bool(data.get("is_discontinued", False)),
+            pack_size_label=str(data.get("pack_size_label", "")),
+            source=str(data.get("source", "curated")),
         )
 
 

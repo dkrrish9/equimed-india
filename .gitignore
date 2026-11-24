@@ -23,3 +23,9 @@ tools/
 Thumbs.db
 .vscode/
 .idea/
+
+# A-Z Indian Medicines raw dataset & compiled SQLite catalog
+data/raw/
+data/*.db
+data/*.db-*
+data/ingestion_report.json

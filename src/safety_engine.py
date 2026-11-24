@@ -114,6 +114,51 @@ class SafetyEngine:
         "mecobalamin": "methylcobalamin",
         "vitamin e": "tocopheryl acetate",
         "udca": "ursodeoxycholic acid",
+        # A-Z retail dataset common spellings & counter-ions
+        "cefixime trihydrate": "cefixime",
+        "cefuroxime axetil": "cefuroxime",
+        "cefpodoxime proxetil": "cefpodoxime",
+        "phenylephrine hydrochloride": "phenylephrine",
+        "phenylephrine hcl": "phenylephrine",
+        "chlorpheniramine maleate": "chlorpheniramine",
+        "caffeine anhydrous": "caffeine",
+        "hctz": "hydrochlorothiazide",
+        "ranitidine hydrochloride": "ranitidine",
+        "ranitidine hcl": "ranitidine",
+        "ambroxol hydrochloride": "ambroxol",
+        "ambroxol hcl": "ambroxol",
+        "levosalbutamol sulphate": "levosalbutamol",
+        "levosalbutamol sulfate": "levosalbutamol",
+        "levalbuterol": "levosalbutamol",
+        "terbutaline sulphate": "terbutaline",
+        "terbutaline sulfate": "terbutaline",
+        "guaiphenesin": "guaifenesin",
+        "dextromethorphan hydrobromide": "dextromethorphan",
+        "dextromethorphan hbr": "dextromethorphan",
+        "moxifloxacin hydrochloride": "moxifloxacin",
+        "moxifloxacin hcl": "moxifloxacin",
+        "nebivolol hydrochloride": "nebivolol",
+        "diltiazem hydrochloride": "diltiazem",
+        "tramadol hydrochloride": "tramadol",
+        "ondansetron hydrochloride": "ondansetron",
+        "drotaverine hydrochloride": "drotaverine",
+        "alfuzosin hydrochloride": "alfuzosin",
+        "teneligliptin hydrobromide": "teneligliptin",
+        "teneligliptin hydrobromide hydrate": "teneligliptin",
+        "terbinafine hydrochloride": "terbinafine",
+        "terbinafine hcl": "terbinafine",
+        "betahistine dihydrochloride": "betahistine",
+        "betahistine hcl": "betahistine",
+        "pyridoxine hydrochloride": "pyridoxine",
+        "vitamin b6": "pyridoxine",
+        "vitamin b9": "folic acid",
+        "paracetamol (acetaminophen)": "paracetamol",
+        "acetaminophen (paracetamol)": "paracetamol",
+        "aceclofenac": "aceclofenac",
+        "ofloxacin": "ofloxacin",
+        "ornidazole": "ornidazole",
+        "telmisartan": "telmisartan",
+        "hydrochlorothiazide": "hydrochlorothiazide",
     }
 
     # Narrow Therapeutic Index (NTI) active substances requiring strict oversight
@@ -135,6 +180,20 @@ class SafetyEngine:
     # Compatible oral solid forms (Tablet <-> Capsule often interchangeable for IR)
     ORAL_SOLID_FORMS: Set[DosageForm] = {DosageForm.TABLET, DosageForm.CAPSULE}
 
+    # Pack-only forms billed per container/pack rather than individual tablet/capsule
+    PACK_ONLY_FORMS: Set[DosageForm] = {
+        DosageForm.SYRUP,
+        DosageForm.INHALER,
+        DosageForm.INJECTION,
+        DosageForm.DROPS,
+        DosageForm.OINTMENT,
+    }
+
+    _CONTAINER_MEASURE_RE = re.compile(
+        r"(\d+(?:\.\d+)?)\s*(ml|l|gms?|g|mdi|metered\s+doses?|doses?|puffs?)\b",
+        re.IGNORECASE,
+    )
+
     @classmethod
     def normalize_salt_name(cls, name: str) -> str:
         """Strip salt counter-ions, waters of hydration, and normalize case/spacing."""
@@ -144,36 +203,71 @@ class SafetyEngine:
 
     @classmethod
     def normalize_strength(cls, value: float, unit: str) -> Tuple[float, str]:
-        """Convert strength to canonical units (mg, mg/ml, iu, iu/ml, mcg/puff, %)."""
-        u = re.sub(r"\s+", "", unit.strip().lower())
+        """Convert strength to canonical units (mg, mg/ml, mg/g, iu, iu/ml, iu/g, mcg/puff, mcg/spray, %)."""
+        u = re.sub(r"\s+", "", unit.strip().lower()).replace("μ", "µ")
         v = float(value)
-        if u == "g":
+        if u in ("g", "gm", "gms"):
             return v * 1000.0, "mg"
         if u in ("mcg", "µg", "ug"):
             return v / 1000.0, "mg"
         if u == "mg/5ml":
             return v / 5.0, "mg/ml"
-        if u == "g/5ml":
+        if u == "mg/15ml":
+            return v / 15.0, "mg/ml"
+        if u in ("g/5ml", "gm/5ml"):
             return v * 200.0, "mg/ml"
         if u in ("mcg/5ml", "µg/5ml", "ug/5ml"):
             return v / 5000.0, "mg/ml"
         if u in ("mcg/ml", "µg/ml", "ug/ml"):
             return v / 1000.0, "mg/ml"
-        if u == "g/ml":
+        if u in ("g/ml", "gm/ml"):
             return v * 1000.0, "mg/ml"
         if u == "iu/5ml":
             return v / 5.0, "iu/ml"
-        if u in ("mcg/puff", "µg/puff", "ug/puff"):
+        if u in ("mcg/puff", "µg/puff", "ug/puff", "mcg/actuation", "µg/actuation", "ug/actuation", "mcg/dose", "µg/dose", "ug/dose"):
             return v, "mcg/puff"
-        if u == "mg/puff":
+        if u in ("mg/puff", "mg/actuation", "mg/dose"):
             return v * 1000.0, "mcg/puff"
+        if u in ("mcg/spray", "µg/spray", "ug/spray"):
+            return v, "mcg/spray"
+        if u == "mg/spray":
+            return v * 1000.0, "mcg/spray"
+        if u == "mg/g":
+            return v, "mg/g"
+        if u in ("g/g", "gm/g"):
+            return v * 1000.0, "mg/g"
+        if u in ("mcg/g", "µg/g", "ug/g"):
+            return v / 1000.0, "mg/g"
+        if u == "iu/g":
+            return v, "iu/g"
         if u in ("%w/v", "w/v%"):
             return v, "% w/v"
         if u in ("%w/w", "w/w%"):
             return v, "% w/w"
+        if u in ("%v/v", "v/v%"):
+            return v, "% v/v"
         if u in ("mg", "iu", "ml", "%", "mg/ml", "iu/ml"):
             return v, u
         return v, u
+
+    @classmethod
+    def _extract_container_measure(cls, med: Medicine) -> Optional[Tuple[float, str, str]]:
+        """Extract normalized container quantity (value, canonical_unit, display) for pack-only forms."""
+        text = med.pack_size_label.strip() or med.brand_name.strip()
+        if not text:
+            return None
+        match = cls._CONTAINER_MEASURE_RE.search(text)
+        if not match:
+            return None
+        raw_val = float(match.group(1))
+        raw_unit = re.sub(r"\s+", " ", match.group(2).strip().lower())
+        if raw_unit == "l":
+            return raw_val * 1000.0, "ml", f"{match.group(1)} {match.group(2).strip()}"
+        if raw_unit in ("g", "gm", "gms"):
+            return raw_val, "g", f"{match.group(1)}{raw_unit}"
+        if raw_unit in ("mdi", "dose", "doses", "puff", "puffs") or "metered" in raw_unit:
+            return raw_val, "mdi", f"{match.group(1)} {match.group(2).strip()}"
+        return raw_val, raw_unit, f"{match.group(1)}{raw_unit}"
 
     @classmethod
     def create_canonical_salt_map(cls, salts: List[SaltComponent]) -> Dict[str, Tuple[float, str]]:
@@ -220,6 +314,14 @@ class SafetyEngine:
                 is_safe=False,
                 is_exact_bioequivalent=False,
                 rejection_reason="Candidate is identical to the original medicine.",
+            )
+
+        # Rule 0b: Discontinued medicines cannot be recommended as substitutes
+        if candidate.is_discontinued:
+            return SafetyVerdict(
+                is_safe=False,
+                is_exact_bioequivalent=False,
+                rejection_reason="Candidate medicine is discontinued and unavailable.",
             )
 
         # Rule 1: Check active salt composition
@@ -280,6 +382,7 @@ class SafetyEngine:
                 ReleaseType.SUSTAINED_RELEASE,
                 ReleaseType.EXTENDED_RELEASE,
                 ReleaseType.CONTROLLED_RELEASE,
+                ReleaseType.MODIFIED_RELEASE,
                 ReleaseType.ENTERIC_COATED,
             )
             if original.release_type in critical_releases or candidate.release_type in critical_releases:
@@ -327,6 +430,19 @@ class SafetyEngine:
                     f"exceeds original brand price (₹{original.price_per_unit:.2f})."
                 ),
             )
+
+        # Soft container-size warning for pack-only forms (e.g., 60ml vs 100ml syrup)
+        if original.dosage_form in self.PACK_ONLY_FORMS and original.dosage_form == candidate.dosage_form:
+            orig_container = self._extract_container_measure(original)
+            cand_container = self._extract_container_measure(candidate)
+            if orig_container and cand_container:
+                o_val, o_unit, o_disp = orig_container
+                c_val, c_unit, c_disp = cand_container
+                if o_unit != c_unit or abs(o_val - c_val) > 0.01:
+                    warnings.append(
+                        f"Pack/container size variation: Prescribed {o_disp} vs substitute {c_disp}. "
+                        f"Verify total volume/doses before dispensing."
+                    )
 
         is_exact = (
             original.dosage_form == candidate.dosage_form

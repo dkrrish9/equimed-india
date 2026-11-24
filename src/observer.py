@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import datetime
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from collections import deque
+from typing import Any, Deque, Dict, List, Optional
 
 
 class SubstitutionObserver(ABC):
@@ -17,10 +18,10 @@ class SubstitutionObserver(ABC):
 
 
 class AuditLogObserver(SubstitutionObserver):
-    """Maintains a secure, structured in-memory audit log of clinical queries and matches."""
+    """Maintains a bounded, structured in-memory audit log of clinical queries and matches."""
 
-    def __init__(self) -> None:
-        self.logs: List[Dict[str, Any]] = []
+    def __init__(self, maxlen: int = 10000) -> None:
+        self.logs: Deque[Dict[str, Any]] = deque(maxlen=maxlen)
 
     def on_event(self, event_type: str, payload: Dict[str, Any]) -> None:
         entry = {
@@ -31,9 +32,10 @@ class AuditLogObserver(SubstitutionObserver):
         self.logs.append(entry)
 
     def get_logs(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        items = list(self.logs)
         if limit is not None:
-            return self.logs[-limit:]
-        return list(self.logs)
+            return items[-limit:]
+        return items
 
     def clear(self) -> None:
         self.logs.clear()
@@ -78,12 +80,12 @@ class SavingsTrackerObserver(SubstitutionObserver):
 
 
 class SafetyAlertObserver(SubstitutionObserver):
-    """Tracks safety warnings, NTI alerts, and bioequivalence rejections."""
+    """Tracks safety warnings, NTI alerts, and bounded bioequivalence rejection logs."""
 
-    def __init__(self) -> None:
+    def __init__(self, maxlen: int = 10000) -> None:
         self.nti_alerts_count: int = 0
         self.rejection_count: int = 0
-        self.warnings_logged: List[Dict[str, Any]] = []
+        self.warnings_logged: Deque[Dict[str, Any]] = deque(maxlen=maxlen)
 
     def on_event(self, event_type: str, payload: Dict[str, Any]) -> None:
         if event_type == "SUBSTITUTION_REJECTED":

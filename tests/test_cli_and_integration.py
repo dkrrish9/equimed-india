@@ -13,6 +13,7 @@ from src.observer import AuditLogObserver, SafetyAlertObserver, SavingsTrackerOb
 from src.optimizer import PrescriptionOptimizer
 from src.repository import MedicineRepository
 from src.search_engine import SearchEngine
+from src.strategy import JanAushadhiFirstStrategy
 
 
 class DummyArgs:
@@ -73,15 +74,19 @@ class TestCliAndIntegration(unittest.TestCase):
         self.assertGreater(len(found_meds), 0)
         orig_med = found_meds[0]
 
-        # 2. Engine finds generic substitutes
+        # 2. Engine finds generic substitutes (MaxSavings default + Jan Aushadhi priority)
         subs = self.engine.find_substitutes(orig_med)
         self.assertGreater(len(subs), 0)
-        best_sub = subs[0]
+        self.assertGreater(subs[0].percentage_savings, 50.0)
+
+        jan_subs = self.engine.find_substitutes(orig_med, strategy=JanAushadhiFirstStrategy())
+        self.assertGreater(len(jan_subs), 0)
+        best_jan = jan_subs[0]
         self.assertIn(
-            best_sub.substitute_medicine.regulatory_tier,
+            best_jan.substitute_medicine.regulatory_tier,
             (RegulatoryTier.PMBJP_JAN_AUSHADHI, RegulatoryTier.WHO_GMP_GENERIC),
         )
-        self.assertGreater(best_sub.percentage_savings, 50.0)
+        self.assertGreater(best_jan.percentage_savings, 50.0)
 
         # 3. Audit trail reflects the operation
         logs = self.audit.get_logs()

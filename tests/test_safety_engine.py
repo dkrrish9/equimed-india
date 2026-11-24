@@ -414,6 +414,36 @@ class TestSafetyEngine(unittest.TestCase):
             SafetyEngine.normalize_salt_name("Metoprolol Tartrate"),
         )
 
+    def test_modified_release_enum_and_clash_rejection(self):
+        self.assertEqual(ReleaseType.from_str("MODIFIED_RELEASE"), ReleaseType.MODIFIED_RELEASE)
+        mr_med = Medicine(
+            id="MED-MR",
+            brand_name="Urimax 0.4",
+            manufacturer="Cipla",
+            salts=[SaltComponent("Tamsulosin", 0.4, "mg")],
+            dosage_form=DosageForm.CAPSULE,
+            release_type=ReleaseType.MODIFIED_RELEASE,
+            pack_size=15,
+            mrp=320.0,
+            price_per_unit=21.33,
+            regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR,
+        )
+        ir_cand = Medicine(
+            id="MED-MR-IR",
+            brand_name="Tamsulosin IR 0.4",
+            manufacturer="Generic",
+            salts=[SaltComponent("Tamsulosin", 0.4, "mg")],
+            dosage_form=DosageForm.CAPSULE,
+            release_type=ReleaseType.IMMEDIATE_RELEASE,
+            pack_size=10,
+            mrp=38.0,
+            price_per_unit=3.80,
+            regulatory_tier=RegulatoryTier.PMBJP_JAN_AUSHADHI,
+        )
+        verdict = self.engine.validate_substitution(mr_med, ir_cand)
+        self.assertFalse(verdict.is_safe)
+        self.assertIn("Critical release kinetics clash", verdict.rejection_reason)
+
 
 if __name__ == "__main__":
     unittest.main()
