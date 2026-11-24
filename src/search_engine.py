@@ -64,7 +64,7 @@ class SearchEngine(ObservableSubject):
         if hasattr(self.repository, "get_substitute_candidates"):
             pre_filtered = self.repository.get_substitute_candidates(
                 original,
-                max_candidates=max(30, limit * 3),
+                max_candidates=max(60, limit * 6),
             )
             candidate_pool = {m.id: m for m in pre_filtered}
         else:

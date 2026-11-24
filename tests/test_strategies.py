@@ -97,9 +97,50 @@ class TestStrategies(unittest.TestCase):
     def test_reputation_balanced_strategy(self):
         strategy = ReputationBalancedStrategy()
         ranked = strategy.rank([self.match_brand_gen, self.match_pmbjp, self.match_who])
-        # Both PMBJP (85% + 100 tier) and WHO (90% + 95 tier) must beat branded generic (40% + 70 tier)
+        # Both PMBJP and WHO-GMP must beat unverified branded generic ("Local Ltd")
         self.assertEqual(ranked[2].substitute_medicine.id, "SUB-3")
         self.assertIn(ranked[0].substitute_medicine.id, ("SUB-1", "SUB-2"))
+
+    def test_balanced_strategy_promotes_major_pharma_over_obscure_cheaper_generic(self):
+        s_par = SaltComponent("Paracetamol", 650.0, "mg")
+        orig = Medicine(
+            id="ORIG-P", brand_name="Dolo 650", manufacturer="Micro Labs",
+            salts=[s_par], dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE, pack_size=15,
+            mrp=34.0, price_per_unit=2.27, regulatory_tier=RegulatoryTier.BRANDED_INNOVATOR,
+        )
+        obscure_cheapest = Medicine(
+            id="SUB-OBS", brand_name="Obscure 650", manufacturer="Unknown Local Labs",
+            salts=[s_par], dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE, pack_size=10,
+            mrp=3.30, price_per_unit=0.33, regulatory_tier=RegulatoryTier.BRANDED_GENERIC,
+        )
+        major_pharma = Medicine(
+            id="SUB-MAJ", brand_name="Pyremol 650", manufacturer="Alembic Pharmaceuticals Ltd",
+            salts=[s_par], dosage_form=DosageForm.TABLET,
+            release_type=ReleaseType.IMMEDIATE_RELEASE, pack_size=15,
+            mrp=8.50, price_per_unit=0.57, regulatory_tier=RegulatoryTier.BRANDED_GENERIC,
+        )
+        m_obs = SubstitutionMatch(
+            original_medicine=orig, substitute_medicine=obscure_cheapest,
+            price_original_unit=2.27, price_substitute_unit=0.33,
+            savings_per_unit=1.94, percentage_savings=85.46,
+            safety_verdict=SafetyVerdict(is_safe=True, is_exact_bioequivalent=True),
+        )
+        m_maj = SubstitutionMatch(
+            original_medicine=orig, substitute_medicine=major_pharma,
+            price_original_unit=2.27, price_substitute_unit=0.57,
+            savings_per_unit=1.70, percentage_savings=74.89,
+            safety_verdict=SafetyVerdict(is_safe=True, is_exact_bioequivalent=True),
+        )
+
+        # MaxSavings picks obscure cheapest first
+        max_ranked = MaxSavingsStrategy().rank([m_obs, m_maj])
+        self.assertEqual(max_ranked[0].substitute_medicine.id, "SUB-OBS")
+
+        # Balanced picks major pharma first
+        bal_ranked = ReputationBalancedStrategy().rank([m_obs, m_maj])
+        self.assertEqual(bal_ranked[0].substitute_medicine.id, "SUB-MAJ")
 
     def test_get_strategy_factory(self):
         self.assertIsInstance(get_strategy("max_savings"), MaxSavingsStrategy)

@@ -3,7 +3,7 @@
 Supports multiple clinical and economic prioritization algorithms:
 1. MaxSavingsStrategy: Highest percentage savings first.
 2. JanAushadhiFirstStrategy: Pradhan Mantri Bhartiya Janaushadhi Pariyojana generics first.
-3. ReputationBalancedStrategy: Multi-criteria decision ranking (Savings + Regulatory GMP Certification).
+3. ReputationBalancedStrategy: Multi-criteria decision ranking (Savings + Quality & Manufacturer Reputation).
 """
 
 from __future__ import annotations
@@ -12,6 +12,52 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from src.models import RegulatoryTier, SubstitutionMatch
+
+MAJOR_PHARMA_KEYWORDS = (
+    "sun pharmaceutical",
+    "sun pharma",
+    "cipla",
+    "dr reddy",
+    "dr. reddy",
+    "lupin",
+    "alkem",
+    "torrent",
+    "zydus",
+    "cadila",
+    "glenmark",
+    "mankind",
+    "abbott",
+    "glaxosmithkline",
+    "gsk",
+    "pfizer",
+    "sanofi",
+    "intas",
+    "macleods",
+    "aristo",
+    "micro labs",
+    "usv",
+    "alembic",
+    "ipca",
+    "biocon",
+    "hetero",
+    "natco",
+    "wockhardt",
+    "emcure",
+    "ajanta",
+    "novartis",
+    "astrazeneca",
+    "bayer",
+    "merck",
+    "eris",
+)
+
+
+def is_major_pharma(manufacturer: str) -> bool:
+    """Return True if manufacturer matches an established CDSCO/WHO-GMP-audited pharma house."""
+    low = (manufacturer or "").strip().lower()
+    if not low:
+        return False
+    return any(kw in low for kw in MAJOR_PHARMA_KEYWORDS)
 
 
 class SubstitutionStrategy(ABC):
@@ -45,7 +91,7 @@ class MaxSavingsStrategy(SubstitutionStrategy):
 
 
 class JanAushadhiFirstStrategy(SubstitutionStrategy):
-    """Prioritizes Government of India PMBJP (Jan Aushadhi) outlets for maximum reliability and public subsidy."""
+    """Prioritizes Government of India PMBJP (Jan Aushadhi) and certified generics first."""
 
     @property
     def name(self) -> str:
@@ -54,9 +100,12 @@ class JanAushadhiFirstStrategy(SubstitutionStrategy):
     def rank(self, matches: List[SubstitutionMatch]) -> List[SubstitutionMatch]:
         for match in matches:
             score = match.percentage_savings
-            if match.substitute_medicine.regulatory_tier == RegulatoryTier.PMBJP_JAN_AUSHADHI:
-                score += 200.0  # Dominant priority bonus for Jan Aushadhi
-            elif match.substitute_medicine.regulatory_tier == RegulatoryTier.WHO_GMP_GENERIC:
+            tier = match.substitute_medicine.regulatory_tier
+            if tier == RegulatoryTier.PMBJP_JAN_AUSHADHI:
+                score += 200.0
+            elif tier == RegulatoryTier.WHO_GMP_GENERIC:
+                score += 100.0
+            elif tier == RegulatoryTier.CDSCO_APPROVED_GENERIC:
                 score += 50.0
 
             match.ranking_score = score
@@ -65,16 +114,16 @@ class JanAushadhiFirstStrategy(SubstitutionStrategy):
 
 
 class ReputationBalancedStrategy(SubstitutionStrategy):
-    """Balanced multi-attribute utility theory (MAUT) balancing economic savings with manufacturing certifications."""
+    """Balanced MAUT combining 40% price savings with 60% quality tier & manufacturer reputation."""
 
-    # Regulatory tier weight map
     TIER_SCORES = {
         RegulatoryTier.PMBJP_JAN_AUSHADHI: 100.0,
-        RegulatoryTier.WHO_GMP_GENERIC: 95.0,
-        RegulatoryTier.CDSCO_APPROVED_GENERIC: 80.0,
-        RegulatoryTier.BRANDED_GENERIC: 70.0,
+        RegulatoryTier.WHO_GMP_GENERIC: 96.0,
+        RegulatoryTier.CDSCO_APPROVED_GENERIC: 85.0,
+        RegulatoryTier.BRANDED_GENERIC: 45.0,
         RegulatoryTier.BRANDED_INNOVATOR: 50.0,
     }
+    MAJOR_PHARMA_QUALITY_SCORE = 82.0
 
     @property
     def name(self) -> str:
@@ -82,11 +131,14 @@ class ReputationBalancedStrategy(SubstitutionStrategy):
 
     def rank(self, matches: List[SubstitutionMatch]) -> List[SubstitutionMatch]:
         for match in matches:
-            tier = match.substitute_medicine.regulatory_tier
-            tier_score = self.TIER_SCORES.get(tier, 60.0)
+            med = match.substitute_medicine
+            tier = med.regulatory_tier
+            quality_score = self.TIER_SCORES.get(tier, 45.0)
+            if tier == RegulatoryTier.BRANDED_GENERIC and is_major_pharma(med.manufacturer):
+                quality_score = self.MAJOR_PHARMA_QUALITY_SCORE
 
-            # 65% weight on price savings, 35% weight on regulatory tier
-            composite_score = (0.65 * match.percentage_savings) + (0.35 * tier_score)
+            # 40% weight on price savings, 60% weight on regulatory tier + manufacturer reputation
+            composite_score = (0.40 * match.percentage_savings) + (0.60 * quality_score)
             match.ranking_score = composite_score
 
         return sorted(matches, key=lambda m: m.ranking_score, reverse=True)

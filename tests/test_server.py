@@ -109,10 +109,24 @@ class TestEquiMedServer(unittest.TestCase):
         self.assertGreater(top["percentage_savings"], 70.0)
 
     def test_api_substitutes_strategy_selection(self):
-        status, _, body = self._request("GET", "/api/substitutes?brand=Telma%2040&strategy=jan_aushadhi")
-        self.assertEqual(status, 200)
-        payload = json.loads(body)
-        self.assertEqual(payload["strategy"], "Jan Aushadhi (PMBJP) Priority")
+        top_brands = {}
+        for strat in ("max_savings", "jan_aushadhi", "balanced"):
+            status, _, body = self._request("GET", f"/api/substitutes?brand=Dolo%20650&strategy={strat}")
+            self.assertEqual(status, 200)
+            payload = json.loads(body)
+            self.assertEqual(payload["strategy_id"], strat)
+            self.assertIn("jan_aushadhi_count", payload)
+            self.assertGreater(len(payload["matches"]), 0)
+            self.assertIn("is_major_pharma", payload["matches"][0])
+            top_brands[strat] = payload["matches"][0]["substitute_brand"]
+
+        # Verify Jan Aushadhi prioritizes PMBJP when available
+        _, _, jan_body = self._request("GET", "/api/substitutes?brand=Telma%2040&strategy=jan_aushadhi")
+        jan_payload = json.loads(jan_body)
+        self.assertEqual(jan_payload["strategy"], "Jan Aushadhi (PMBJP) Priority")
+        self.assertEqual(jan_payload["matches"][0]["regulatory_tier"], "PMBJP_JAN_AUSHADHI")
+        self.assertGreater(jan_payload["jan_aushadhi_count"], 0)
+        self.assertGreater(len(set(top_brands.values())), 1)
 
     def test_api_substitutes_missing_brand_param(self):
         status, _, body = self._request("GET", "/api/substitutes")
@@ -250,17 +264,26 @@ class TestEquiMedServer(unittest.TestCase):
         status, _, body = self._request("GET", "/")
         self.assertEqual(status, 200)
         self.assertNotIn("1,021 FORMULATIONS ACTIVE", body)
-        self.assertIn("Find Cheaper Same-Salt Medicines", body)
+        self.assertIn("Search Any Medicine & Find Cheaper Options", body)
+        self.assertIn("MEDICINES AVAILABLE", body)
         self.assertNotIn("onclick=\"quickSearch('Telma 40')\"", body)
 
     def test_root_html_cart_revamped_and_chronic_section_removed(self):
         status, _, body = self._request("GET", "/")
         self.assertEqual(status, 200)
-        self.assertIn("My Medicine Bill & Savings", body)
+        self.assertIn("My Medicine Bill & Total Savings", body)
         self.assertNotIn('id="chronicPanel"', body)
         self.assertNotIn("Chronic Therapy Regimen Simulation", body)
         self.assertNotIn("33 CLINICAL SCENARIOS", body)
         self.assertNotIn('<option value="jan_aushadhi">', body)
+
+    def test_root_html_search_waits_for_find_alternatives_button(self):
+        status, _, body = self._request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertIn('id="findAlternativesBtn"', body)
+        self.assertIn('onclick="performSearch()"', body)
+        self.assertNotIn('onchange="performSearch()"', body)
+        self.assertNotIn('onsubmit="event.preventDefault(); performSearch();"', body)
 
     def test_api_404_not_found(self):
         status, _, body = self._request("GET", "/api/non_existent_route")

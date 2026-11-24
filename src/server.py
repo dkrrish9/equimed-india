@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,7 +22,12 @@ from src.optimizer import PrescriptionOptimizer
 from src.repository import load_default_repository
 from src.safety_engine import SafetyEngine
 from src.search_engine import SearchEngine
-from src.strategy import get_strategy
+from src.strategy import (
+    JanAushadhiFirstStrategy,
+    ReputationBalancedStrategy,
+    get_strategy,
+    is_major_pharma,
+)
 
 # Global state instances
 _baskets_path = Path(__file__).resolve().parent.parent / "data" / "chronic_baskets.json"
@@ -947,16 +953,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <div class="brand-mark">EQ</div>
       <div class="brand-text">
         <h1>EquiMed-India</h1>
-        <span>Generic Drug Substitution & Formulary Affordability Optimizer</span>
+        <span>Find Cheaper, Safe Same-Salt Medicines in India</span>
       </div>
     </div>
     <div class="nav-meta">
       <div class="meta-stat">
         <span class="status-dot"></span>
-        <span id="navCatalogCount" class="mono">{{CATALOG_COUNT}} FORMULATIONS ACTIVE</span>
+        <span id="navCatalogCount" class="mono">{{CATALOG_COUNT}} MEDICINES AVAILABLE</span>
       </div>
       <div class="meta-stat">
-        <span class="mono">CDSCO / IP 2026</span>
+        <span class="mono">CDSCO SAFETY RULES</span>
       </div>
       <button class="theme-toggle" onclick="scrollToCart()" aria-label="Jump to My Medicine Bill">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -977,29 +983,29 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
   <main class="app-shell">
 
-    <!-- Section 1: Find Cheaper Same-Salt Medicines -->
+    <!-- Section 1: Search Any Medicine & Find Cheaper Options -->
     <section id="lookupPanel" class="panel">
       <div class="view-header">
         <div>
-          <h2 class="section-title">Find Cheaper Same-Salt Medicines</h2>
-          <p class="section-desc">Type your prescribed medicine name or ingredient to see safe, cheaper alternatives with the exact same medicine inside.</p>
+          <h2 class="section-title">Search Any Medicine & Find Cheaper Options</h2>
+          <p class="section-desc">Enter a medicine name from your prescription to see lower-cost alternatives with the exact same ingredient inside.</p>
         </div>
       </div>
 
       <!-- Quick Presets (populated dynamically from /api/ui-config) -->
       <div class="presets-row" id="presetsRow">
-        <span class="presets-label">Quick Examples:</span>
+        <span class="presets-label">Try Common Medicines:</span>
       </div>
 
       <!-- Search Inputs -->
-      <form class="search-row" onsubmit="event.preventDefault(); performSearch();">
+      <form class="search-row" onsubmit="event.preventDefault();">
         <div class="input-wrapper">
           <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="brandInput" list="medSuggestions" autocomplete="off" placeholder="Type medicine name or salt (e.g., Dolo 650, Telma 40, Paracetamol)..." value="" onkeydown="if(event.key === 'Enter'){ event.preventDefault(); performSearch(); }">
+          <input type="text" id="brandInput" list="medSuggestions" autocomplete="off" placeholder="Type medicine name or salt (e.g., Dolo 650, Telma 40, Paracetamol)..." value="">
           <datalist id="medSuggestions"></datalist>
         </div>
-        <select id="strategySelect" aria-label="Sort Alternatives By" onchange="performSearch()"></select>
-        <button type="submit" class="btn-primary">
+        <select id="strategySelect" aria-label="Sort Alternatives By"></select>
+        <button type="button" id="findAlternativesBtn" class="btn-primary" onclick="performSearch()">
           <span>Find Alternatives</span>
         </button>
       </form>
@@ -1008,7 +1014,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <div id="searchResults"></div>
     </section>
 
-    <!-- Section 2: My Medicine Bill & Savings -->
+    <!-- Section 2: My Medicine Bill & Total Savings -->
     <section id="cartPanel" class="panel">
       <div class="print-only-header">
         <h2>EquiMed-India · Medicine List for Your Chemist</h2>
@@ -1016,8 +1022,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
       <div class="view-header no-print">
         <div>
-          <h2 class="section-title">My Medicine Bill & Savings</h2>
-          <p class="section-desc">Compare your doctor's prescribed brands with cheaper same-salt alternatives, and print a list to show your chemist.</p>
+          <h2 class="section-title">My Medicine Bill & Total Savings</h2>
+          <p class="section-desc">Compare the total cost of your doctor's brands vs. cheaper alternatives, and print a list for the chemist.</p>
         </div>
         <div class="regimen-controls">
           <select id="cartStrategySelect" aria-label="Sort Cart Alternatives By" onchange="recalculateCart()"></select>
@@ -1035,8 +1041,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div id="toastNotice" class="toast-notice"></div>
 
   <footer>
-    <div>EquiMed-India · Indian Institute of Information Technology, Lucknow (Software Engineering Laboratory)</div>
-    <div class="mono">Deterministic Verification · Zero-Hallucination Bioequivalence</div>
+    <div>EquiMed-India · Indian Institute of Information Technology, Lucknow</div>
   </footer>
 
   <script>
@@ -1175,7 +1180,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       const presetsRow = document.getElementById('presetsRow');
       if (presetsRow && Array.isArray(uiConfig.presets)) {
-        presetsRow.innerHTML = '<span class="presets-label">Quick Examples:</span>';
+        presetsRow.innerHTML = '<span class="presets-label">Try Common Medicines:</span>';
         uiConfig.presets.forEach(p => {
           const chip = document.createElement('span');
           chip.className = 'chip';
@@ -1243,16 +1248,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }
     }
 
-    async function quickSearch(name) {
+    function quickSearch(name) {
       document.getElementById('brandInput').value = name;
-      performSearch();
+      const btn = document.getElementById('findAlternativesBtn');
+      if (btn) btn.focus();
+      showToast(`Selected "${name}" — click Find Alternatives`);
     }
 
     async function performSearch() {
       const brand = document.getElementById('brandInput').value.trim();
       const strategy = document.getElementById('strategySelect').value || 'max_savings';
       const resDiv = document.getElementById('searchResults');
-      if (!brand) return;
+      if (!brand) {
+        resDiv.innerHTML = '<div class="alert-banner" style="margin-top: 16px;"><div>Please type a medicine name or salt first, then click <b>Find Alternatives</b>.</div></div>';
+        return;
+      }
 
       const cur = (uiConfig.search_config && uiConfig.search_config.currency_symbol) || '₹';
       resDiv.innerHTML = '<p style="color: var(--text-muted); margin-top: 16px;">Checking active ingredients, strength, and safety rules...</p>';
@@ -1322,18 +1332,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
               <div class="med-meta">
                 <h3>${escapeHtml(data.original_brand)}${ntiTag}${discontinuedTag}</h3>
-                <div class="med-salts">Inside This Medicine (Salt): ${escapeHtml(data.original_salts)}</div>
+                <div class="med-salts">Main Ingredient: ${escapeHtml(data.original_salts)}</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
                   ${escapeHtml(data.original_manufacturer)} · <span class="mono">${escapeHtml(formLabel)} · ${escapeHtml(releaseLabel)}</span> · <span class="mono">${packLabel}</span>
                 </div>
               </div>
               <div class="med-price-badge">
-                <div class="price-sub">Your Medicine (Per ${escapeHtml(unitTitle)})</div>
+                <div class="price-sub">Current Price (1 ${escapeHtml(unitTitle)})</div>
                 <div class="price-num">${cur}${data.original_price_unit.toFixed(2)}</div>
               </div>
             </div>
             <div class="add-cart-bar">
-              <div style="font-size: 12px; color: var(--text-muted);">How many do you need? Add to your Prescription Bill below:</div>
+              <div style="font-size: 12px; color: var(--text-muted);">Want to add this to your medicine bill? Pick your dose:</div>
               ${addControls}
             </div>
           </div>
@@ -1345,22 +1355,32 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           return;
         }
 
+        const activeStratObj = (uiConfig.strategies || []).find(s => s.id === (data.strategy_id || strategy));
+        const activeStratLabel = activeStratObj ? activeStratObj.label : (data.strategy || '');
+
+        let janMissingBanner = '';
+        if (data.strategy_id === 'jan_aushadhi' && Number(data.jan_aushadhi_count || 0) === 0) {
+          janMissingBanner = `<div class="alert-banner" style="margin-top: 12px;"><div>No <b>Govt. Jan Aushadhi (PMBJP)</b> store listing was found in our catalog for this exact strength — showing the closest verified active alternatives below. You can still ask at a Jan Aushadhi Kendra using the salt name above.</div></div>`;
+        }
+
         html += `
           <div class="results-explainer">
             <div>
-              <div class="results-explainer-title">Verified Cheaper Alternatives (${data.matches.length} found)</div>
-              <div class="results-explainer-sub">All options below have the <strong>exact same active ingredient and strength</strong> as <strong>${escapeHtml(data.original_brand)}</strong>, checked automatically by safety rules.</div>
+              <div class="results-explainer-title">Cheaper Options With the Exact Same Medicine (${data.matches.length} found)</div>
+              <div class="results-explainer-sub">Every medicine below has the <strong>exact same ingredient and strength</strong> as <strong>${escapeHtml(data.original_brand)}</strong>.</div>
             </div>
+            <div class="mono" style="font-size: 11px; color: var(--accent); font-weight: 600;">Sorted by: ${escapeHtml(activeStratLabel)}</div>
           </div>
+          ${janMissingBanner}
           <div class="table-container" style="margin-top: 12px;">
             <table>
               <thead>
                 <tr>
-                  <th>Cheaper Alternative Medicine</th>
-                  <th>Company & Quality Badge</th>
-                  <th class="tnum" style="text-align: right;">Price per ${escapeHtml(unitTitle)}</th>
-                  <th class="tnum" style="text-align: right;">You Save (per ${escapeHtml(unitTitle)})</th>
-                  <th style="text-align: right;">Select</th>
+                  <th>Cheaper Medicine</th>
+                  <th>Company & Trust Level</th>
+                  <th class="tnum" style="text-align: right;">Price (1 ${escapeHtml(unitTitle)})</th>
+                  <th class="tnum" style="text-align: right;">Savings (per ${escapeHtml(unitTitle)})</th>
+                  <th style="text-align: right;">Add to Bill</th>
                 </tr>
               </thead>
               <tbody>
@@ -1369,22 +1389,32 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         data.matches.forEach(m => {
           const tierBadge = formatTierBadge(m.regulatory_tier);
           const subPackLabel = m.substitute_pack_label || `Pack of ${m.substitute_pack_size}`;
+          const trustedTag = (data.strategy_id === 'balanced' && m.is_major_pharma && m.regulatory_tier === 'BRANDED_GENERIC')
+            ? ' <span class="badge badge-who">Trusted Pharma</span>'
+            : '';
+          const scoreLine = data.strategy_id === 'balanced'
+            ? `<div class="mono" style="font-size: 10px; color: var(--accent); margin-top: 2px;">Balance Score: ${Number(m.ranking_score || 0).toFixed(0)}/100</div>`
+            : '';
+          const rowHighlight = (data.strategy_id === 'jan_aushadhi' && m.regulatory_tier === 'PMBJP_JAN_AUSHADHI')
+            ? ' style="background-color: var(--badge-pmbjp-bg);"'
+            : '';
           html += `
-            <tr>
+            <tr${rowHighlight}>
               <td>
                 <div style="font-weight: 600; color: var(--text-main);">${escapeHtml(m.substitute_brand)}</div>
                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(subPackLabel)} · Full Pack MRP ${cur}${m.substitute_mrp.toFixed(2)}</div>
               </td>
               <td>
-                ${tierBadge}
+                ${tierBadge}${trustedTag}
                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(m.substitute_manufacturer)}</div>
+                ${scoreLine}
               </td>
               <td class="tnum" style="text-align: right; font-weight: 600;">${cur}${m.substitute_price_unit.toFixed(2)}</td>
               <td class="tnum" style="text-align: right;">
                 <span class="badge badge-savings">-${m.percentage_savings.toFixed(1)}% · Save ${cur}${m.savings_per_unit.toFixed(2)} each</span>
               </td>
               <td style="text-align: right;">
-                <button type="button" class="btn-secondary btn-sm" onclick="addCurrentLookupToCart('${escapeHtml(m.substitute_id)}')">+ Pick This Option</button>
+                <button type="button" class="btn-secondary btn-sm" onclick="addCurrentLookupToCart('${escapeHtml(m.substitute_id)}')">+ Add to Bill</button>
               </td>
             </tr>
           `;
@@ -1551,19 +1581,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       let html = `
         <div class="metrics-row" style="margin-top: 18px;">
           <div class="stat-box">
-            <div class="stat-label">Prescribed Brands Total (${escapeHtml(modeTitle)})</div>
+            <div class="stat-label">Original Bill (${escapeHtml(modeTitle)})</div>
             <div class="stat-figure red tnum">${cur}${origTotal.toFixed(2)}</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Cheaper Alternatives Total</div>
+            <div class="stat-label">New Cheaper Bill</div>
             <div class="stat-figure blue tnum">${cur}${optTotal.toFixed(2)}</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Total Money Saved</div>
+            <div class="stat-label">You Save</div>
             <div class="stat-figure green tnum">${cur}${savTotal.toFixed(2)} <span style="font-size: 14px; font-weight: 500;">(${savPct.toFixed(1)}%)</span></div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Yearly Savings (If Taken Monthly)</div>
+            <div class="stat-label">Yearly Savings (12 Months)</div>
             <div class="stat-figure green tnum">${cur}${annualSav.toFixed(2)}</div>
           </div>
         </div>
@@ -1572,12 +1602,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <table>
             <thead>
               <tr>
-                <th>Prescribed Medicine & Salt</th>
-                <th>How Many You Need</th>
-                <th>Chosen Alternative</th>
-                <th class="tnum" style="text-align: right;">Original Cost</th>
-                <th class="tnum" style="text-align: right;">New Cost</th>
-                <th class="tnum" style="text-align: right;">You Save</th>
+                <th>Your Medicine</th>
+                <th>Dose & Days</th>
+                <th>Selected Cheaper Medicine</th>
+                <th class="tnum" style="text-align: right;">Old Price</th>
+                <th class="tnum" style="text-align: right;">New Price</th>
+                <th class="tnum" style="text-align: right;">Saved</th>
                 <th class="no-print" style="text-align: center;">Remove</th>
               </tr>
             </thead>
@@ -1701,7 +1731,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const data = await res.json();
         const navCount = document.getElementById('navCatalogCount');
         if (navCount && data.catalog_count) {
-          navCount.textContent = `${data.catalog_count.toLocaleString()} FORMULATIONS ACTIVE`;
+          navCount.textContent = `${data.catalog_count.toLocaleString()} MEDICINES AVAILABLE`;
         }
       } catch (e) {}
     }
@@ -1778,13 +1808,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             } catch(e) {}
           }, debounceMs);
         });
-
-        bInput.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            performSearch();
-          }
-        });
       }
 
       loadCatalogMeta();
@@ -1794,7 +1817,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         } else {
           renderCartFromCache();
         }
-        performSearch();
+        const resDiv = document.getElementById('searchResults');
+        if (resDiv && !resDiv.innerHTML.trim()) {
+          resDiv.innerHTML = '<div class="cart-empty" style="margin-top: 16px;">Choose a medicine and sort option above, then click <strong>Find Alternatives</strong>.</div>';
+        }
       });
     };
   </script>
@@ -1876,6 +1902,18 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
             )
             orig_is_pack_only = orig.dosage_form in SafetyEngine.PACK_ONLY_FORMS
 
+            if isinstance(strategy, JanAushadhiFirstStrategy):
+                strategy_id = "jan_aushadhi"
+            elif isinstance(strategy, ReputationBalancedStrategy):
+                strategy_id = "balanced"
+            else:
+                strategy_id = "max_savings"
+
+            jan_count = sum(
+                1 for m in matches
+                if m.substitute_medicine.regulatory_tier == RegulatoryTier.PMBJP_JAN_AUSHADHI
+            )
+
             enriched_matches = [
                 {
                     **m.to_dict(),
@@ -1883,6 +1921,7 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
                     "substitute_pack_label": _format_pack_label(m.substitute_medicine),
                     "substitute_mrp": m.substitute_medicine.mrp,
                     "dosage_form": m.substitute_medicine.dosage_form.value,
+                    "is_major_pharma": is_major_pharma(m.substitute_medicine.manufacturer),
                     "substitute_form_label": _FORM_DISPLAY_META.get(
                         m.substitute_medicine.dosage_form,
                         {"label": m.substitute_medicine.dosage_form.value},
@@ -1916,6 +1955,8 @@ class EquiMedHTTPRequestHandler(BaseHTTPRequestHandler):
                 "is_discontinued": orig.is_discontinued,
                 "original_source": orig.source,
                 "strategy": strategy.name,
+                "strategy_id": strategy_id,
+                "jan_aushadhi_count": jan_count,
                 "matches": enriched_matches,
             }
             self.send_json(resp)
@@ -2015,4 +2056,8 @@ def run_server(port: int = 8000) -> None:
 
 
 if __name__ == "__main__":
-    run_server(8000)
+    try:
+        port = int(os.environ.get("PORT", "8000"))
+    except ValueError:
+        port = 8000
+    run_server(port)

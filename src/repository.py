@@ -228,7 +228,11 @@ class SQLiteMedicineRepository:
             conn.execute("PRAGMA temp_store = MEMORY")
             conn.execute("PRAGMA cache_size = -16000")
             try:
-                conn.execute("PRAGMA mmap_size = 268435456")
+                mmap_mb = max(0, int(os.environ.get("EQUIMED_SQLITE_MMAP_MB", "256")))
+            except ValueError:
+                mmap_mb = 256
+            try:
+                conn.execute(f"PRAGMA mmap_size = {mmap_mb * 1024 * 1024}")
             except sqlite3.Error:
                 pass
             conn.execute("PRAGMA query_only = ON")
