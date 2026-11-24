@@ -28,8 +28,17 @@ class MockSocket:
 
 
 class TestEquiMedServer(unittest.TestCase):
-    def _request(self, method: str, path: str):
-        req_bytes = f"{method} {path} HTTP/1.1\r\nHost: localhost\r\n\r\n".encode("utf-8")
+    def _request(self, method: str, path: str, body_data=None):
+        if body_data is not None:
+            raw_payload = body_data.encode("utf-8") if isinstance(body_data, str) else json.dumps(body_data).encode("utf-8")
+            req_bytes = (
+                f"{method} {path} HTTP/1.1\r\n"
+                f"Host: localhost\r\n"
+                f"Content-Type: application/json\r\n"
+                f"Content-Length: {len(raw_payload)}\r\n\r\n"
+            ).encode("utf-8") + raw_payload
+        else:
+            req_bytes = f"{method} {path} HTTP/1.1\r\nHost: localhost\r\n\r\n".encode("utf-8")
         sock = MockSocket(req_bytes)
         _ = EquiMedHTTPRequestHandler(sock, ("127.0.0.1", 54321), DummyServer())
 
@@ -146,9 +155,39 @@ class TestEquiMedServer(unittest.TestCase):
         status, _, body = self._request("GET", "/api/metrics")
         self.assertEqual(status, 200)
         payload = json.loads(body)
+        self.assertIn("catalog_count", payload)
+        self.assertGreaterEqual(payload["catalog_count"], 1000)
         self.assertIn("savings", payload)
         self.assertIn("safety", payload)
         self.assertIn("audit_entries_count", payload)
+
+    def test_api_optimize_cart_valid_and_pack_math(self):
+        status, headers, body = self._request(
+            "POST",
+            "/api/optimize-cart",
+            body_data={
+                "strategy": "jan_aushadhi",
+                "items": [
+                    {"brand_name": "Telma 40", "units_per_day": 1, "duration_days": 30},
+                    {"brand_name": "Augmentin 625 Duo", "units_per_day": 2, "duration_days": 7},
+                    {"brand_name": "Calpol 250 Pediatric Suspension (60ml)", "units_per_day": 1, "duration_days": 1},
+                ],
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("application/json", headers.get("content-type", ""))
+        payload = json.loads(body)
+        self.assertEqual(payload["summary"]["item_count"], 3)
+        self.assertGreater(payload["summary"]["pack_savings_total"], 0.0)
+        # Augmentin: 14 units / pack_size 10 -> 2 packs needed
+        aug = payload["items"][1]
+        self.assertEqual(aug["total_units"], 14)
+        self.assertEqual(aug["original_packs_needed"], 2)
+
+    def test_api_optimize_cart_invalid_payload(self):
+        status, _, body = self._request("POST", "/api/optimize-cart", body_data="{not-json")
+        self.assertEqual(status, 400)
+        self.assertIn("error", json.loads(body))
 
     def test_api_404_not_found(self):
         status, _, body = self._request("GET", "/api/non_existent_route")

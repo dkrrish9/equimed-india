@@ -639,5 +639,120 @@
         "days": 30
       }
     ]
+  },
+  {
+    "basket_id": "BASKET-29",
+    "patient_profile": "Bronchial Asthma & Allergic Rhinitis (Mixed Form: Inhaler + Oral + Nasal Spray)",
+    "description": "Controller inhaler with leukotriene blocker and intranasal steroid spray",
+    "items": [
+      {
+        "brand_name": "Foracort 200 Inhaler (120 MDI)",
+        "units_per_day": 1,
+        "days": 1
+      },
+      {
+        "brand_name": "Montair-LC",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Flomist Nasal Spray (100 Sprays)",
+        "units_per_day": 1,
+        "days": 1
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-30",
+    "patient_profile": "Insulin-Dependent T2DM & Cardiorenal Protection (Injection + Oral)",
+    "description": "Basal insulin glargine paired with SGLT2i, ARB, and high-intensity statin",
+    "items": [
+      {
+        "brand_name": "Lantus SoloSTAR Pen (3ml)",
+        "units_per_day": 1,
+        "days": 2
+      },
+      {
+        "brand_name": "Forxiga 10",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Telma 40",
+        "units_per_day": 1,
+        "days": 30
+      },
+      {
+        "brand_name": "Atorva 20",
+        "units_per_day": 1,
+        "days": 30
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-31",
+    "patient_profile": "Primary Open-Angle Glaucoma & Chronic Dry Eye (Ophthalmic Regimen)",
+    "description": "Prostaglandin analog, beta-blocker drops, and artificial lubricating tears",
+    "items": [
+      {
+        "brand_name": "Xalatan 0.005% Eye Drops (2.5ml)",
+        "units_per_day": 1,
+        "days": 1
+      },
+      {
+        "brand_name": "Timolet 0.5% Eye Drops (5ml)",
+        "units_per_day": 1,
+        "days": 1
+      },
+      {
+        "brand_name": "Refresh Tears 0.5% Eye Drops (10ml)",
+        "units_per_day": 1,
+        "days": 1
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-32",
+    "patient_profile": "Pediatric Acute URTI & Febrile Episode (Syrup Course)",
+    "description": "Weight-based antibiotic dry syrup, antipyretic suspension, and allergy syrup",
+    "items": [
+      {
+        "brand_name": "Augmentin Duo Dry Syrup (30ml)",
+        "units_per_day": 1,
+        "days": 1
+      },
+      {
+        "brand_name": "Calpol 250 Pediatric Suspension (60ml)",
+        "units_per_day": 1,
+        "days": 1
+      },
+      {
+        "brand_name": "Montair-LC Kid Syrup (60ml)",
+        "units_per_day": 1,
+        "days": 1
+      }
+    ]
+  },
+  {
+    "basket_id": "BASKET-33",
+    "patient_profile": "Acute Orthopedic Sprain & Soft Tissue Trauma (Oral + Topical Gel)",
+    "description": "Oral anti-inflammatory enzyme therapy with gastro-protection and diclofenac gel",
+    "items": [
+      {
+        "brand_name": "Zerodol-SP Tablet",
+        "units_per_day": 2,
+        "days": 7
+      },
+      {
+        "brand_name": "Pan-D",
+        "units_per_day": 1,
+        "days": 7
+      },
+      {
+        "brand_name": "Voveran Emulgel (30g)",
+        "units_per_day": 1,
+        "days": 1
+      }
+    ]
   }
 ]

@@ -75,6 +75,16 @@ class TestSearchEngine(unittest.TestCase):
         for m in matches:
             self.assertGreaterEqual(m.percentage_savings, 85.0)
 
+    def test_hyphen_insensitive_and_salt_synonym_search(self):
+        # Search without hyphen should resolve Glycomet-GP 2
+        res_hyphen = self.repo.search_by_brand("glycomet gp 2")
+        self.assertTrue(any(m.brand_name == "Glycomet-GP 2" for m in res_hyphen))
+
+        # Search by canonical synonym "Acetaminophen" should resolve Paracetamol brands
+        res_salt = self.repo.search_by_brand("Acetaminophen")
+        self.assertGreater(len(res_salt), 0)
+        self.assertTrue(any("dolo" in m.brand_name.lower() or "paracetamol" in m.brand_name.lower() for m in res_salt))
+
 
 if __name__ == "__main__":
     unittest.main()
