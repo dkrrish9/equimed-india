@@ -1,171 +1,197 @@
-# 💊 EquiMed-India
-### Deterministic Generic Drug Substitution & Out-of-Pocket Healthcare Affordability Optimizer
+# EquiMed-India
+
+### Deterministic Generic Drug Substitution & Healthcare Affordability Engine
 
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Verification Status](https://img.shields.io/badge/tests-66%20passed%20%7C%200%20failed-brightgreen.svg)]()
-[![Catalog Size](https://img.shields.io/badge/catalog-611%20medicines-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-66%20passed%20%7C%200%20failed-brightgreen.svg)]()
+[![Catalog](https://img.shields.io/badge/catalog-611%20formulations-blue.svg)]()
 [![Therapy Baskets](https://img.shields.io/badge/chronic%20baskets-28%20scenarios-teal.svg)]()
-[![Code Coverage](https://img.shields.io/badge/RTM%20Coverage-100%25-success.svg)]()
-[![Standard](https://img.shields.io/badge/SRS-IEEE%20Std%20830--1998-orange.svg)]()
-[![Course](https://img.shields.io/badge/IIIT%20Lucknow-Software%20Engineering%20(4%20Credits)-purple.svg)]()
+[![Dependencies](https://img.shields.io/badge/dependencies-zero%20(stdlib)-lightgrey.svg)]()
 
-> **Inspired by PlatinumRx and Pradhan Mantri Bhartiya Janaushadhi Pariyojana (PMBJP).**  
-> Designed, architected, and verified for the **Software Engineering Course at the Indian Institute of Information Technology (IIIT), Lucknow**.
+**EquiMed-India** is a zero-dependency clinical decision-support and price-transparency engine for the Indian pharmaceutical market. It matches branded prescriptions against chemically identical **CDSCO-approved** and **PMBJP Jan Aushadhi** generic equivalents while enforcing strict bioequivalence, dosage-form, release-kinetics, and Narrow Therapeutic Index (NTI) safety checks.
 
 ---
 
-## 📌 1. Project Overview & Motivation
+## Overview
 
-In India, **65% to 70% of total health expenditure is out-of-pocket (OOP)**. For elderly citizens and families managing chronic diseases (Type 2 Diabetes, Hypertension, Cardiac disorders, Chronic Acid Reflux), recurring branded medication costs force difficult financial trade-offs.
+In India, out-of-pocket expenditure accounts for the majority of household healthcare spending, with recurring chronic-care medications often carrying 70%–90% brand markups over identical generic formulations. EquiMed-India addresses this deterministically—without external APIs or generative model hallucinations:
 
-Commercial brand-name medicines (e.g. *Telma 40*, *Glycomet-GP 2*, *Augmentin 625 Duo*, *Pan-D*, *Atorva 10*) are sold at markups of **70% to 90%** compared to chemically identical generic equivalents manufactured under Central Drugs Standard Control Organization (CDSCO) and PMBJP Jan Aushadhi standards.
-
-**EquiMed-India** solves this through a deterministic software engineering engine:
-1. **Chemical Normalization & Invariant Fingerprinting:** Normalizes active pharmaceutical ingredients (APIs), standardizes strengths, and creates order-independent multi-salt fingerprints.
-2. **6-Tier Bioequivalence & Safety Gate:** Prevents hazardous mismatches (e.g., blocking Sustained Release $\rightarrow$ Immediate Release substitution to prevent *dose dumping*) and enforces mandatory Narrow Therapeutic Index (NTI) alerts.
-3. **Pluggable Strategy Prioritization:** Leverages the GoF Strategy Pattern to rank candidates by pure price savings, Government Jan Aushadhi outlets, or balanced quality certifications.
-4. **Chronic Therapy Basket Affordability Optimizer:** Aggregates multi-drug prescriptions and projects 30-day and 365-day household financial savings.
+1. **Canonical Salt & Strength Normalization:** Maps salt counter-ions and synonyms (e.g., *Metformin Hydrochloride* → *Metformin*, *Potassium Clavulanate* → *Clavulanic Acid*, *Levothyroxine Sodium* → *Thyroxine Sodium*), harmonizes units (`g` / `mcg` / `µg` → `mg`), and aggregates duplicate active ingredients.
+2. **Order-Independent Chemical Fingerprinting:** Generates invariant keys (`<sorted_salts>#<dosage_form>#<release_type>`) so multi-salt combination formulations resolve consistently regardless of salt ordering.
+3. **6-Rule Bioequivalence & Safety Gate:** Enforces exact active-salt and strength matching (`±0.001` tolerance), blocks incompatible dosage forms and dangerous release-kinetics downgrades (such as *Sustained Release* → *Immediate Release* dose-dumping or *Enteric Coated* → *Immediate Release* acid degradation), flags Narrow Therapeutic Index (NTI) drugs, and rejects candidates priced above the reference brand.
+4. **Configurable Ranking Strategies:** Ranks verified substitutes by pure cost reduction (`max_savings`), government PMBJP Jan Aushadhi subsidy priority (`jan_aushadhi`), or a weighted savings-plus-certification score (`balanced`).
+5. **Chronic Regimen Optimizer:** Evaluates multi-drug prescriptions across 30-day and 365-day horizons, surfacing item-level substitutions, clinical alerts, and safe fallbacks when no generic equivalent exists.
 
 ---
 
-## 📊 2. Measurable Outcomes & Empirical Results
+## Core Capabilities
 
-Evaluated across real-world chronic patient therapy bundles:
-
-| Therapy Profile | Branded Spend / Mo | EquiMed Generic / Mo | Monthly Savings | Savings (%) | Annual Savings |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Elderly Diabetic & Hypertensive (Age 62)** | ₹1,531.80 | ₹250.50 | **₹1,281.30** | **🟢 83.7%** | **₹15,375.60** |
-| **Cardiovascular Secondary Prevention (Post-Stent)** | ₹1,686.00 | ₹405.00 | **₹1,281.00** | **🟢 76.0%** | **₹15,372.00** |
-| **Geriatric Bone & Endocrine Care** | ₹576.00 | ₹141.60 | **₹434.40** | **🟢 75.4%** | **₹5,212.80** |
-| **Acute Bacterial Infection Course** | ₹306.90 | ₹82.25 | **₹224.65** | **🟢 73.2%** | **₹2,695.80** |
-| **COMBINED MULTI-MORBIDITY TOTAL** | **₹4,100.70** | **₹879.35** | **₹3,221.35** | **🟢 78.6%** | **₹38,656.20** |
-
-- **Sub-Millisecond Query Latency:** $0.012\text{ ms}$ (p90) — throughput exceeds **100,000 QPS**.
-- **Bioequivalence Precision:** **100.0%** (0 chemical mismatches, 0 strength tolerance breaches).
-- **Formal Verification:** **66 / 66 tests passing (100%)** including formal Equivalence Class Partitioning (ECP), Boundary Value Analysis (BVA), Safety Engine Release Kinetics, REST API & Baskets integration suites.
-- **Extensive Clinical Dataset:** **611 curated Indian branded & Jan Aushadhi medicines** across 20+ therapeutic categories and **28 real-world chronic therapy baskets** yielding an average of **82.8% out-of-pocket patient savings**.
+- **Dual-Index In-Memory Repository:** Constant-time `O(1)` lookup by medicine ID, normalized exact brand name, and chemical salt fingerprint, backed by an inverted constituent-salt index (`_by_salt`) to surface valid oral-solid alternatives (e.g., `TABLET` ↔ `CAPSULE`) for safety evaluation.
+- **Clinical Guardrails:**
+  - Hardcoded NTI monitoring alerts for *Thyroxine Sodium*, *Warfarin*, *Digoxin*, *Lithium*, *Phenytoin*, *Theophylline*, and *Carbamazepine* (plus per-record `is_narrow_therapeutic_index` flags).
+  - Controlled-release protection across `SUSTAINED_RELEASE`, `EXTENDED_RELEASE`, `CONTROLLED_RELEASE`, and `ENTERIC_COATED` formulations.
+  - Non-fatal pharmacological warning when substituting between `TABLET` and `CAPSULE` (`is_exact_bioequivalent = False`).
+- **Event Telemetry & Audit Ledger:** Observer-driven tracking (`AuditLogObserver`, `SavingsTrackerObserver`, `SafetyAlertObserver`) capturing query counts, cumulative savings, NTI alerts, and safety rejections without coupling to core search logic.
+- **Interactive Web Console & REST API:** Zero-dependency HTTP server (`http.server`) serving a responsive Light/Dark-themed web UI with live brand autocomplete, quick formulation presets, strategy switching, and a chronic therapy simulator, alongside CORS-enabled JSON endpoints.
+- **Interactive CLI:** Terminal interface for brand lookup, substitute ranking, and chronic basket benchmarking.
 
 ---
 
-## 🏛️ 3. Software Engineering Design & Architecture
+## Architecture
 
-### Core Design Patterns Applied:
-1. **Strategy Pattern (`src/strategy.py`):** Enables interchangeable ranking algorithms (`MaxSavingsStrategy`, `JanAushadhiFirstStrategy`, `ReputationBalancedStrategy`) adhering to the Open-Closed Principle (OCP).
-2. **Observer Pattern (`src/observer.py`):** Decoupled clinical audit logging (`AuditLogObserver`), savings metrics telemetry (`SavingsTrackerObserver`), and clinical safety alert counters (`SafetyAlertObserver`).
-3. **Repository Pattern (`src/repository.py`):** In-memory inverted hash index enabling $O(1)$ constant-time lookup by chemical salt fingerprint rather than slow $O(N)$ catalog scans.
-4. **Facade Pattern (`src/search_engine.py`):** Unifies repository queries, multi-stage clinical validation, strategy scoring, and observer notifications into a clean API.
+EquiMed-India is structured as a three-layer modular Python package:
 
----
+```text
+Presentation Layer
+├── src/cli.py              # Argparse CLI (search, substitutes, chronic-baskets)
+└── src/server.py           # Embedded HTTP REST API & single-page Web UI
 
-## 📁 4. Project Directory Structure
+Business Logic Layer
+├── src/search_engine.py    # Facade & ObservableSubject orchestrating lookup, safety, and ranking
+├── src/safety_engine.py    # Salt/unit normalization, bioequivalence rules, and NTI guard
+├── src/strategy.py         # Ranking strategies (MaxSavings, JanAushadhiFirst, ReputationBalanced)
+└── src/optimizer.py        # Multi-drug chronic prescription optimizer (30-day & annual projections)
 
+Data & Telemetry Layer
+├── src/models.py           # Domain dataclasses & enums (Medicine, SaltComponent, SafetyVerdict, etc.)
+├── src/repository.py       # In-memory multi-index repository (ID, brand, fingerprint, inverted salt)
+└── src/observer.py         # AuditLogObserver, SavingsTrackerObserver, SafetyAlertObserver
 ```
-SE Project/
-├── README.md                          # Project documentation and quickstart
-├── run_tests.py                       # Automated test runner with verification report
-├── benchmark.py                       # Latency, precision, and economic benchmark runner
+
+### Why Deterministic Rules Instead of Generative LLMs?
+
+| Dimension | Generative LLM | EquiMed-India |
+| :--- | :--- | :--- |
+| **Hallucination Risk** | Can invent non-existent strengths, salts, or prices | **0%** — every result is strictly grounded in `data/medicine_catalog.json` |
+| **Release Kinetics Safety** | May overlook SR/ER/CR/EC vs. IR distinctions | **Enforced** — incompatible release kinetics are deterministically rejected |
+| **NTI Safeguards** | Inconsistent warnings | **Mandatory alerts** on all NTI compounds and flagged products |
+| **Latency & Cost** | ~1,500–4,000 ms/call, network & API costs | **0.052 ms (p90)**, ~38,500 QPS, 100% offline, zero API fees |
+| **Auditability** | Stochastic black box | **Deterministic** verdicts with structured observer audit logs |
+
+---
+
+## Empirical Benchmarks & Verification
+
+Verified locally via `python3 run_tests.py` and `python3 benchmark.py` against **611 formulations** across **128 therapeutic categories** and **28 chronic therapy baskets**:
+
+- **Test Suite:** **66 / 66 tests passing (100%)** in **~74 ms** (unit, integration, REST API, equivalence class partitioning, and boundary value analysis).
+- **Lookup Latency (1,000 iterations):**
+  - **p50:** `0.024 ms` | **p90:** `0.052 ms` | **p99:** `0.063 ms` | **Mean:** `0.026 ms`
+  - **Throughput:** **`38,508.7 QPS`**
+- **Bioequivalence Precision:** **`100.00%`** across `612` evaluated candidates (`0` salt mismatches, `0` strength breaches, `0` fabricated entities).
+- **Patient Savings Across 28 Chronic Baskets:** **`82.8%` overall cost reduction** (`₹59,368.99/mo` branded vs. `₹10,203.00/mo` generic).
+
+Representative scenarios from `benchmark.py`:
+
+| Basket | Therapy Profile | Branded / Mo | Generic / Mo | Monthly Savings | Savings % | Annual Savings |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `BASKET-01` | Elderly Diabetic & Hypertensive (Age 62) | ₹1,531.80 | ₹250.50 | ₹1,281.30 | 83.7% | ₹15,375.60 |
+| `BASKET-02` | Cardiovascular Secondary Prevention (Post-Stent) | ₹1,686.00 | ₹405.00 | ₹1,281.00 | 76.0% | ₹15,372.00 |
+| `BASKET-03` | Geriatric Bone & Endocrine Care | ₹600.00 | ₹90.60 | ₹509.40 | 84.9% | ₹6,112.80 |
+| `BASKET-04` | Acute Bacterial Infection & Fever Course | ₹381.99 | ₹97.30 | ₹284.69 | 74.5% | ₹3,416.28 |
+| **All 28** | **Combined Multi-Morbidity Benchmark** | **₹59,368.99** | **₹10,203.00** | **₹49,165.99** | **82.8%** | **₹589,991.88** |
+
+---
+
+## Project Structure
+
+```text
+.
+├── README.md
+├── benchmark.py                      # Latency, bioequivalence precision, and basket savings benchmark
+├── run_tests.py                      # Automated unittest runner
 ├── data/
-│   ├── medicine_catalog.json          # Curated Indian pharmaceutical & PMBJP catalog
-│   └── chronic_baskets.json           # Real-world chronic patient therapy regimens
-├── docs/
-│   ├── SRS.md                         # IEEE Std 830-1998 Software Requirements Specification
-│   ├── UML_AND_ARCHITECTURE.md        # Architecture, DFD Level 0/1, UML Class, Sequence & State
-│   ├── PRESENTATION_5_SLIDES.md       # Exact 5-Slide presentation deck for faculty review
-│   ├── CROSS_EXAMINATION_GUIDE.md     # Viva defense answers for teacher cross-examination
-│   └── TRACEABILITY_MATRIX.md         # Requirements Traceability Matrix (RTM)
+│   ├── medicine_catalog.json         # 611 Indian branded & generic formulations
+│   └── chronic_baskets.json          # 28 chronic multi-morbidity therapy regimens
+├── docs/                             # Architecture, SRS, and traceability documentation
 ├── src/
 │   ├── __init__.py
-│   ├── models.py                      # Domain dataclasses (Medicine, Salt, Match, Basket)
-│   ├── safety_engine.py               # Bioequivalence, release kinetics & NTI guard
-│   ├── strategy.py                    # GoF Strategy Pattern implementations
-│   ├── observer.py                    # GoF Observer Pattern telemetry & audit ledger
-│   ├── repository.py                  # Inverted in-memory multi-index data repository
-│   ├── search_engine.py               # Facade orchestrating search, safety & ranking
-│   ├── optimizer.py                   # Multi-drug chronic prescription optimizer
-│   ├── cli.py                         # Rich interactive terminal user interface
-│   └── server.py                      # Zero-dependency HTTP REST API & Web UI
+│   ├── models.py                     # Domain models, enums, and salt_fingerprint()
+│   ├── safety_engine.py              # Clinical validation, normalization, and NTI rules
+│   ├── strategy.py                   # Ranking strategy implementations and factory
+│   ├── observer.py                   # Audit, savings, and safety telemetry observers
+│   ├── repository.py                 # Multi-index in-memory medicine repository
+│   ├── search_engine.py              # Search & substitution facade
+│   ├── optimizer.py                  # Multi-drug prescription basket optimizer
+│   ├── cli.py                        # Command-line interface
+│   └── server.py                     # HTTP REST API & Web UI
 └── tests/
-    ├── __init__.py
-    ├── test_models.py                 # Domain model & fingerprint invariant tests
-    ├── test_safety_engine.py          # Clinical safety & bioequivalence unit tests
-    ├── test_strategies.py             # Strategy pattern ranking tests
-    ├── test_search_engine.py          # Search facade & observer notification tests
-    ├── test_server.py                 # Embedded HTTP REST API & Web UI tests
-    ├── test_optimizer.py              # Multi-drug basket calculation tests
-    ├── test_blackbox.py               # Equivalence Class Partitioning & BVA tests
-    └── test_cli_and_integration.py    # End-to-end integration & CLI tests
+    ├── test_models.py
+    ├── test_safety_engine.py
+    ├── test_strategies.py
+    ├── test_search_engine.py
+    ├── test_optimizer.py
+    ├── test_server.py
+    ├── test_blackbox.py
+    └── test_cli_and_integration.py
 ```
 
 ---
 
-## 🚀 5. Quickstart & Execution
+## Quickstart
 
-> **Zero Dependencies:** EquiMed-India runs entirely on the **Python standard library** (Python 3.9+). No `pip install` required!
+Requires **Python 3.9+**. No virtual environment or `pip install` needed.
 
-### 5.1 Run Automated Tests
+### 1. Run the Test Suite & Benchmarks
+
 ```bash
 python3 run_tests.py
-```
-*Expected output: All 47 tests passing in $< 15\text{ ms}$.*
-
-### 5.2 Run Empirical Performance & Savings Benchmark
-```bash
 python3 benchmark.py
 ```
-*Measures query latency (p50, p90, p99), throughput (QPS), precision, and chronic basket savings.*
 
-### 5.3 Command-Line Interface (CLI)
-#### Search a Prescribed Medicine:
+### 2. Use the CLI
+
 ```bash
+# Search the catalog by brand name
 python3 -m src.cli search "Telma 40"
-```
 
-#### Find Bioequivalent Generic Substitutes:
-```bash
-# Maximum Cost Savings Strategy (Default)
+# Find bioequivalent substitutes (strategies: max_savings | jan_aushadhi | balanced)
 python3 -m src.cli substitutes "Telma 40"
-
-# Jan Aushadhi (Government PMBJP) Priority Strategy
 python3 -m src.cli substitutes "Augmentin 625 Duo" --strategy jan_aushadhi
-
-# Balanced Quality & Certification Strategy
 python3 -m src.cli substitutes "Pan-D" --strategy balanced
-```
 
-#### Simulate Chronic Disease Therapy Baskets:
-```bash
+# Simulate all 28 chronic therapy baskets
 python3 -m src.cli chronic-baskets
 ```
 
-### 5.4 Launch Interactive Web UI & REST API
+### 3. Launch the Web UI & REST API
+
 ```bash
 python3 -m src.server
 ```
-Then open your browser at **`http://localhost:8000`** to interact with the responsive drug comparator, chronic therapy simulator, and real-time savings visualizer!
+
+Open **`http://localhost:8000`** in your browser for the interactive formulary comparator, preset chips, dark/light theme toggle, and chronic regimen simulator.
 
 ---
 
-## 🎯 6. Innovation: Why Not ChatGPT / LLMs?
+## REST API Reference
 
-| Dimension | Generic LLM / ChatGPT | EquiMed-India (Our System) |
-| :--- | :--- | :--- |
-| **Clinical Hallucinations** | Risk of hallucinating non-existent strengths or wrong salts. | **0% Hallucination.** Every candidate verified against CDSCO catalog. |
-| **Release Kinetics Safety** | Frequently ignores SR vs IR (risk of lethal *dose dumping*). | **Automated Release Gatekeeper:** SR $\rightarrow$ IR strictly blocked. |
-| **Narrow Therapeutic Index** | Uncalibrated or missing warnings. | **Mandatory hardcoded alerts** for high-risk drugs (Thyroxine, Warfarin). |
-| **Latency & Cost** | 1,500 ms – 4,000 ms per call; recurring API costs; requires internet. | **0.012 ms ($>100,000\text{ QPS}$)**, 100% offline, zero API fees. |
-| **Auditability** | Non-deterministic black box. | **Full Observer Pattern audit ledger** for clinical compliance. |
+All API routes return JSON with `Access-Control-Allow-Origin: *`.
+
+| Method | Endpoint | Query Parameters | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/` or `/index.html` | — | Serves the interactive Web UI |
+| `GET` | `/api/search` | `q` (string), `limit` (int, default `10`) | Prefix/substring brand lookup |
+| `GET` | `/api/substitutes` | `brand` (required), `strategy` (`max_savings` \| `jan_aushadhi` \| `balanced`) | Ranked bioequivalent substitutes and warnings |
+| `GET` | `/api/baskets` | — | Lists all 28 chronic therapy basket profiles |
+| `GET` | `/api/optimize-basket` | `basket_id` (default `BASKET-01`) | Itemized savings breakdown and safety alerts for a basket |
+| `GET` | `/api/metrics` | — | Live savings, safety alert, and audit log counters |
+
+### Example Requests
+
+```bash
+# Look up generic substitutes prioritized by Jan Aushadhi availability
+curl "http://localhost:8000/api/substitutes?brand=Telma%2040&strategy=jan_aushadhi"
+
+# Simulate a chronic prescription basket
+curl "http://localhost:8000/api/optimize-basket?basket_id=BASKET-01"
+
+# Inspect runtime telemetry
+curl "http://localhost:8000/api/metrics"
+```
 
 ---
 
-## 📋 7. Academic Submission Deliverables
+## Medical & Regulatory Disclaimer
 
-- 📄 **Software Requirements Specification (SRS):** [docs/SRS.md](file:///Users/krrishdixit/SE%20Project/docs/SRS.md)
-- 📐 **Software Architecture & UML Diagrams:** [docs/UML_AND_ARCHITECTURE.md](file:///Users/krrishdixit/SE%20Project/docs/UML_AND_ARCHITECTURE.md)
-- 📊 **5-Slide Presentation Deck:** [docs/PRESENTATION_5_SLIDES.md](file:///Users/krrishdixit/SE%20Project/docs/PRESENTATION_5_SLIDES.md)
-- 🛡️ **Cross-Examination & Viva Defense Guide:** [docs/CROSS_EXAMINATION_GUIDE.md](file:///Users/krrishdixit/SE%20Project/docs/CROSS_EXAMINATION_GUIDE.md)
-- 📑 **Requirements Traceability Matrix (RTM):** [docs/TRACEABILITY_MATRIX.md](file:///Users/krrishdixit/SE%20Project/docs/TRACEABILITY_MATRIX.md)
-
----
-
-## ⚖️ Legal & Medical Disclaimer
-*EquiMed-India is an academic software engineering reference implementation developed at IIIT Lucknow. It provides clinical decision support and price transparency metrics. It does not dispense medication. Substitution of prescription pharmaceuticals must always be confirmed with a licensed medical practitioner or registered pharmacist in accordance with the Drugs and Cosmetics Act, 1940.*
+EquiMed-India is a clinical decision-support and price-transparency software tool. It does not prescribe or dispense medication. Any substitution of prescription pharmaceuticals should be verified by a licensed medical practitioner or registered pharmacist in accordance with the **Drugs and Cosmetics Act, 1940** and applicable clinical guidelines.
